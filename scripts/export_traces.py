@@ -27,7 +27,7 @@ def main(argv: list[str]) -> int:
         conn.close()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, indent=1, ensure_ascii=False))
-    print(f"wrote {OUT} ({len(data['runs'])} runs, {len(data['eval']['results'])} eval cases)")
+    print(f"wrote {OUT} ({len(data['evals'])} evals, {sum(len(e['runs']) for e in data['evals'])} runs)")
     return 0
 
 

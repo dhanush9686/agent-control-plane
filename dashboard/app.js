@@ -21,7 +21,8 @@ const ms = (v) => (v == null ? "n/a" : v >= 1000 ? (v / 1000).toFixed(1) + " s" 
 const usd = (v) => (v == null ? "n/a" : "$" + v.toFixed(5));
 const badge = (ok) => h("span", { class: "badge " + (ok ? "pass" : "fail") }, ok ? "✓ pass" : "✕ fail");
 
-let DATA = null;
+let DATA = null; // currently selected evaluation view: {eval, runs, ...}
+let ALL = null;
 let chart = null;
 
 /* ---------- theme ---------- */
@@ -47,6 +48,7 @@ function overview() {
   const s = DATA.eval.summary;
   const cats = Object.entries(s.per_category);
   const view = h("div", {},
+    evalPicker(),
     h("div", { class: "kpis" },
       kpi("Overall pass rate", pct(s.pass_rate), `${s.n_cases} golden questions`),
       kpi("Answered correctly", pct(s.answered_correctly_rate), "of answerable questions"),
@@ -65,6 +67,17 @@ function overview() {
   );
   queueMicrotask(() => drawChart(cats));
   return view;
+}
+
+function evalPicker() {
+  if (ALL.evals.length < 2) return null;
+  const sel = h("select", { id: "eval-pick", "aria-label": "Choose evaluation run", onchange: (e) => { selectEval(e.target.value); render(); } },
+    ALL.evals.map((e, i) => h("option", { value: e.eval_id, selected: e.eval_id === DATA.eval.eval_id }, `${i === 0 ? "Latest" : "Earlier"} · ${e.created_at.slice(0, 16).replace("T", " ")} · pass ${pct(e.summary.pass_rate)}`)));
+  return h("div", { class: "picker" }, h("label", { for: "eval-pick" }, "Evaluation run "), sel);
+}
+function selectEval(id) {
+  const e = ALL.evals.find((x) => x.eval_id === id) || ALL.evals[0];
+  DATA = { ...ALL, eval: e, runs: e.runs };
 }
 
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -171,7 +184,8 @@ async function init() {
   try {
     const res = await fetch("data/traces.json", { cache: "no-cache" });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    DATA = await res.json();
+    ALL = await res.json();
+    selectEval(ALL.evals[0].eval_id);
   } catch (e) {
     $("#main").replaceChildren(h("div", { class: "card empty" }, "Could not load data/traces.json (" + e.message + "). Run `make export`, and serve this folder over HTTP."));
     $("#subtitle").textContent = "No data";

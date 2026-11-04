@@ -128,9 +128,10 @@ def test_end_to_end_eval_then_export(settings, tmp_path):
     assert json.loads((tmp_path / "r.json").read_text())["eval_id"] == report["eval_id"]
     conn = store.connect(settings.db_path)
     assert conn.execute("SELECT COUNT(*) FROM eval_results").fetchone()[0] == 1
-    data = build_export(conn)
-    assert data["runs"][0]["spans"] and data["runs"][0]["retrieved"]
-    assert data["eval"]["summary"]["n_cases"] == 1
+    data = build_export(conn, min_cases=1)
+    latest = data["evals"][0]
+    assert latest["runs"][0]["spans"] and latest["runs"][0]["retrieved"]
+    assert latest["summary"]["n_cases"] == 1
     assert "GROQ" not in json.dumps(data)
 
 

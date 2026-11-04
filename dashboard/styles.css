@@ -78,3 +78,5 @@ details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
 .claim q { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; quotes: none; }
 .fail-card { margin-bottom: 16px; }
 .empty { text-align: center; padding: 40px 12px; color: var(--muted); }
+.picker { margin-bottom: 16px; font-size: 13px; color: var(--muted); }
+select { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; }

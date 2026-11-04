@@ -16,13 +16,7 @@ from typing import Any
 from acp import store
 
 
-def build_export(conn: sqlite3.Connection, eval_id: str | None = None) -> dict[str, Any]:
-    if eval_id:
-        ev = conn.execute("SELECT * FROM eval_runs WHERE eval_id=?", (eval_id,)).fetchone()
-    else:
-        ev = conn.execute("SELECT * FROM eval_runs ORDER BY created_at DESC LIMIT 1").fetchone()
-    if ev is None:
-        raise ValueError("no eval run found: run `make eval` first")
+def _export_one(conn: sqlite3.Connection, ev: sqlite3.Row) -> dict[str, Any]:
     results = [
         json.loads(r["result"])
         for r in conn.execute("SELECT result FROM eval_results WHERE eval_id=? ORDER BY case_id", (ev["eval_id"],))
@@ -37,16 +31,38 @@ def build_export(conn: sqlite3.Connection, eval_id: str | None = None) -> dict[s
         run["case_id"] = res["case_id"]
         run["category"] = res["category"]
         run["retrieved"] = json.loads(run.pop("retrieved_json") or "[]")
-        run["spans"] = [{**s, "attributes": json.loads(s["attributes"] or "{}")} for s in store.fetch_spans(conn, rid)]
+        run["spans"] = [
+            {**sp, "attributes": json.loads(sp["attributes"] or "{}")} for sp in store.fetch_spans(conn, rid)
+        ]
         runs.append(run)
     return {
-        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "model": ev["model"],
-        "eval": {
-            "eval_id": ev["eval_id"],
-            "created_at": ev["created_at"],
-            "summary": json.loads(ev["summary"]),
-            "results": results,
-        },
+        "eval_id": ev["eval_id"],
+        "created_at": ev["created_at"],
+        "summary": json.loads(ev["summary"]),
+        "results": results,
         "runs": runs,
+    }
+
+
+def build_export(
+    conn: sqlite3.Connection, eval_id: str | None = None, history: int = 3, min_cases: int = 10
+) -> dict[str, Any]:
+    """Export the latest eval (and up to `history`-1 earlier full ones) so the dashboard can compare runs.
+
+    Small smoke runs (fewer than `min_cases` questions) are skipped unless asked for by id.
+    """
+    if eval_id:
+        rows = conn.execute("SELECT * FROM eval_runs WHERE eval_id=?", (eval_id,)).fetchall()
+    else:
+        rows = [
+            r
+            for r in conn.execute("SELECT * FROM eval_runs ORDER BY created_at DESC").fetchall()
+            if json.loads(r["summary"])["n_cases"] >= min_cases
+        ][:history]
+    if not rows:
+        raise ValueError("no eval run found: run `make eval` first")
+    return {
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "model": rows[0]["model"],
+        "evals": [_export_one(conn, r) for r in rows],
     }
