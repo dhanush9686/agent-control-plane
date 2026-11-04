@@ -20,7 +20,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -108,7 +108,7 @@ class SQLiteSpanExporter(SpanExporter):
                 (
                     run_id,
                     a.get("acp.question", ""),
-                    datetime.fromtimestamp(s.start_time / 1e9, tz=timezone.utc).isoformat(timespec="seconds"),
+                    datetime.fromtimestamp(s.start_time / 1e9, tz=UTC).isoformat(timespec="seconds"),
                     latency_ms,
                     status,
                     a.get("acp.error"),
@@ -147,7 +147,9 @@ class SpanHandle:
             try:
                 if v is None:
                     continue
-                self._span.set_attribute(f"acp.attr.{k}", v if isinstance(v, (str, int, float, bool)) else json.dumps(v, default=str))
+                self._span.set_attribute(
+                    f"acp.attr.{k}", v if isinstance(v, (str, int, float, bool)) else json.dumps(v, default=str)
+                )
             except Exception:  # noqa: BLE001
                 log.debug("attr failed", exc_info=True)
 
@@ -277,7 +279,9 @@ def _node_details(name: str, state: AgentState, out: dict[str, Any]) -> dict[str
     return {}
 
 
-def trace_node(name: str, fn: Callable[[AgentState], dict[str, Any]], tracing: Tracing) -> Callable[[AgentState], dict[str, Any]]:
+def trace_node(
+    name: str, fn: Callable[[AgentState], dict[str, Any]], tracing: Tracing
+) -> Callable[[AgentState], dict[str, Any]]:
     def wrapper(state: AgentState) -> dict[str, Any]:
         with tracing.span(f"node.{name}", "node") as sp:
             out = fn(state)

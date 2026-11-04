@@ -22,15 +22,14 @@ class Retriever(Protocol):
 
 class FaissRetriever:
     def __init__(self, settings: Settings) -> None:
+        if not (settings.index_path / "index.faiss").is_file():
+            raise EmptyIndexError(
+                f"No search index at {settings.index_path}. Build it first: `make index` (or `python build_index.py`)."
+            )
         # Imported here so unit tests never pay the cost of loading torch.
         from langchain_community.vectorstores import FAISS
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        if not (settings.index_path / "index.faiss").is_file():
-            raise EmptyIndexError(
-                f"No search index at {settings.index_path}. Build it first: `make index` "
-                "(or `python build_index.py`)."
-            )
         embeddings = HuggingFaceEmbeddings(model_name=settings.embedding_model)
         self._store = FAISS.load_local(
             str(settings.index_path), embeddings, allow_dangerous_deserialization=True

@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from acp.errors import ACPError
 from acp.config import get_settings
+from acp.errors import ACPError
 from acp.llm import get_llm
 from acp.nodes import extract_citations
 from acp.retrieval import FaissRetriever
@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
                 if r:
                     print(
                         f"   trace run_id={run_id} latency={r['latency_ms']:.0f}ms llm_calls={r['llm_calls']} "
-                        f"tokens={r['input_tokens']}+{r['output_tokens']} cost=${r['cost_usd']:.5f} -> {settings.db_path}"
+                        f"tokens={r['input_tokens']}+{r['output_tokens']} cost=${r['cost_usd']:.5f} "
+                        f"-> {settings.db_path}"
                     )
     except ACPError as e:
         print(f"error: {e}", file=sys.stderr)

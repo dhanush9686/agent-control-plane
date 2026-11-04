@@ -8,4 +8,4 @@ if __name__ == "__main__":
         n = build_index()
         print(f"Indexed {n} chunks.")
     except ACPError as e:
-        raise SystemExit(f"error: {e}")
+        raise SystemExit(f"error: {e}") from None

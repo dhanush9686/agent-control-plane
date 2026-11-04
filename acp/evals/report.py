@@ -25,12 +25,16 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "n_cases": len(results),
         "n_errors": len(results) - len(ok),
-        "answered_correctly_rate": _rate(sum(1 for r in should_answer if not r["behavior_failures"]), len(should_answer)),
+        "answered_correctly_rate": _rate(
+            sum(1 for r in should_answer if not r["behavior_failures"]), len(should_answer)
+        ),
         "hallucination_rate": _rate(sum(1 for r in answered if r["hallucinated"]), len(answered)),
         "refusal_correctness": _rate(sum(1 for r in ok if r["refused"] == (r["expect"] == "refuse")), len(ok)),
         "citation_rate": _rate(sum(1 for r in answered if r["citation_ok"]), len(answered)),
         "pass_rate": _rate(sum(1 for r in ok if r["passed"]), len(results)),
-        "avg_grounding_score": round(sum(r["grounding_score"] for r in answered) / len(answered), 4) if answered else None,
+        "avg_grounding_score": round(sum(r["grounding_score"] for r in answered) / len(answered), 4)
+        if answered
+        else None,
         "avg_latency_ms": round(sum(r["latency_ms"] for r in ok) / len(ok), 1) if ok else None,
         "avg_cost_usd": round(sum(r["cost_usd"] for r in ok) / len(ok), 6) if ok else None,
         "total_cost_usd": round(sum(r["cost_usd"] for r in ok), 6),
@@ -43,7 +47,11 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
             "n": len(rs),
             "pass_rate": _rate(sum(1 for r in rs if r.get("passed")), len(rs)),
             "hallucinations": sum(1 for r in rs if r.get("hallucinated")),
-            "avg_latency_ms": round(sum(r["latency_ms"] for r in rs if not r.get("error")) / max(1, sum(1 for r in rs if not r.get("error"))), 1),
+            "avg_latency_ms": round(
+                sum(r["latency_ms"] for r in rs if not r.get("error"))
+                / max(1, sum(1 for r in rs if not r.get("error"))),
+                1,
+            ),
         }
         for cat, rs in sorted(by_cat.items())
     }

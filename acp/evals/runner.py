@@ -11,7 +11,7 @@ import json
 import time
 import uuid
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,12 @@ REPORT_PATH = ROOT / "results" / "eval_report.json"
 
 def evaluate_case(agent: Agent, judge_llm: LLM, case: GoldenCase, settings: Settings) -> dict[str, Any]:
     """Ask one question and grade it. Provider outages become an `error` result, not a crash."""
-    base: dict[str, Any] = {"case_id": case.id, "category": case.category, "question": case.question, "expect": case.expect}
+    base: dict[str, Any] = {
+        "case_id": case.id,
+        "category": case.category,
+        "question": case.question,
+        "expect": case.expect,
+    }
     try:
         final, run_id = agent.ask(case.question)
         answer = final["answer"]
@@ -88,7 +93,7 @@ def run_eval(
 
     report = {
         "eval_id": eval_id,
-        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "agent_model": settings.model,
         "summary": aggregate(results),
         "results": results,

@@ -1,0 +1,9 @@
+# Minimal set for lint + OFFLINE unit tests (no torch/FAISS/Groq SDK needed), so CI is fast.
+langchain-core==1.7.5
+langgraph==1.2.19
+python-dotenv==1.2.4
+pydantic==2.14.2
+opentelemetry-sdk==1.45.2
+PyYAML==6.0.3
+pytest==9.2.0
+ruff==0.17.3

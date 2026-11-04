@@ -14,7 +14,7 @@ from acp.graph import build_graph
 from acp.llm import LLM
 from acp.retrieval import Retriever
 from acp.state import AgentState, initial_state
-from acp.tracing import Tracing, TracedLLM, trace_node
+from acp.tracing import TracedLLM, Tracing, trace_node
 
 
 class Agent:
@@ -25,7 +25,9 @@ class Agent:
         self.tracing = tracing
         if tracing is not None:
             llm = TracedLLM(llm, tracing)
-        self._graph = build_graph(llm, retriever, settings, wrap_node=(lambda n, f: trace_node(n, f, tracing)) if tracing else None)
+        self._graph = build_graph(
+            llm, retriever, settings, wrap_node=(lambda n, f: trace_node(n, f, tracing)) if tracing else None
+        )
 
     def ask(self, question: str) -> tuple[AgentState, str | None]:
         """Returns (final_state, run_id). run_id is None when tracing is off."""
@@ -38,7 +40,10 @@ class Agent:
                 attempts=final.get("search_attempts"),
                 sufficient=int(bool(final.get("sufficient_context"))),
                 retrieved_json=json.dumps(
-                    [{"source": d.metadata.get("source"), "text": d.page_content} for d in final.get("retrieved_docs", [])]
+                    [
+                        {"source": d.metadata.get("source"), "text": d.page_content}
+                        for d in final.get("retrieved_docs", [])
+                    ]
                 ),
             )
             return final, run_id
