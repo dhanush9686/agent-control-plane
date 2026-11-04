@@ -1,0 +1,66 @@
+"""Turn text into vectors (lists of numbers) so "similar meaning" becomes "nearby".
+
+Analogy: GPS coordinates for sentences. MiniLM (a small free model that runs on your CPU) gives each chunk a
+position; a question gets a position too; the nearest chunks are the likeliest answers. The `Embedder` protocol
+lets tests plug in a tiny deterministic stand-in so they never load PyTorch.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+from typing import Protocol
+
+import numpy as np
+
+
+class Embedder(Protocol):
+    dim: int
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        """Return an (n, dim) float32 array of L2-normalized vectors (so dot product = cosine similarity)."""
+        ...
+
+
+class MiniLMEmbedder:
+    """sentence-transformers/all-MiniLM-L6-v2 on CPU. Load once per process; it is the slow, memory-hungry part."""
+
+    _cache: dict[str, MiniLMEmbedder] = {}
+
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", batch_size: int = 64) -> None:
+        from sentence_transformers import SentenceTransformer
+
+        self._model = SentenceTransformer(model_name, device="cpu")
+        self.dim = int(self._model.get_sentence_embedding_dimension())
+        self.batch_size = batch_size
+
+    @classmethod
+    def shared(cls, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> MiniLMEmbedder:
+        if model_name not in cls._cache:
+            cls._cache[model_name] = cls(model_name)
+        return cls._cache[model_name]
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        vecs = self._model.encode(texts, batch_size=self.batch_size, normalize_embeddings=True, show_progress_bar=False)
+        return np.asarray(vecs, dtype="float32")
+
+
+class HashEmbedder:
+    """Deterministic bag-of-words stand-in for tests and offline demos: no model, no download.
+
+    Each word is hashed into one of `dim` buckets, so texts sharing words get similar vectors. It is NOT good
+    at meaning (no synonyms) but is enough to test the plumbing (index, filters, fusion, citations).
+    """
+
+    def __init__(self, dim: int = 256) -> None:
+        self.dim = dim
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        out = np.zeros((len(texts), self.dim), dtype="float32")
+        for i, t in enumerate(texts):
+            for w in re.findall(r"[a-z0-9]+", t.lower()):
+                h = int.from_bytes(hashlib.md5(w.encode()).digest()[:4], "little")
+                out[i, h % self.dim] += 1.0
+        norms = np.linalg.norm(out, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        return out / norms
