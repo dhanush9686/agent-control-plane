@@ -2,8 +2,8 @@
 
 A thin reliability layer around an LLM agent. Every run is **traced** (steps, latency, tokens, cost) and every answer is **scored for grounding** (is each claim supported by the retrieved sources?), so a team can see *when* and *why* the agent fails.
 
-- **Live dashboard:** _LIVE_URL_
-- **Repo:** _REPO_URL_
+- **Live dashboard:** not deployed yet
+- **Repo:** https://github.com/dhanush9686/agent-control-plane
 
 ![Dashboard overview](docs/dashboard-overview.png)
 ![Trace waterfall](docs/dashboard-runs.png)
@@ -45,7 +45,7 @@ Code map: `acp/graph.py` (LangGraph StateGraph and routing), `acp/nodes.py` (the
 Requires Python 3.11+ and a free [Groq API key](https://console.groq.com/keys).
 
 ```bash
-git clone _REPO_URL_ && cd agent-control-plane
+git clone https://github.com/dhanush9686/agent-control-plane && cd agent-control-plane
 make setup            # venv, deps, builds the FAISS index; creates .env from .env.example
 # put your key in .env  (GROQ_API_KEY=...)
 make run Q="Who kills Garuda, and how does Rocky's story end?"
