@@ -1,0 +1,52 @@
+"""`python -m acp.evals` -- run the golden set and print the report."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+
+from acp.config import get_settings
+from acp.errors import ACPError
+from acp.evals.golden import load_golden
+from acp.evals.report import render_markdown
+from acp.evals.runner import REPORT_PATH, judge_settings, run_eval
+from acp.llm import get_llm
+from acp.retrieval import FaissRetriever
+from acp.runner import Agent
+from acp.tracing import Tracing
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(prog="acp.evals", description="Run the golden-set evaluation.")
+    p.add_argument("--ids", nargs="*", help="Only these case ids")
+    p.add_argument("--categories", nargs="*", help="Only these categories")
+    p.add_argument("--limit", type=int, help="Only the first N cases (handy on free-tier rate limits)")
+    p.add_argument("--pause", type=float, default=0.0, help="Seconds to sleep between questions")
+    p.add_argument("--judge-model", help="Use a different model for grading than for answering")
+    args = p.parse_args(argv)
+
+    cases = load_golden()
+    if args.ids:
+        cases = [c for c in cases if c.id in args.ids]
+    if args.categories:
+        cases = [c for c in cases if c.category in args.categories]
+    if args.limit:
+        cases = cases[: args.limit]
+    if not cases:
+        p.error("no cases selected")
+
+    try:
+        settings = get_settings()
+        agent = Agent(get_llm(settings), FaissRetriever(settings), settings, Tracing(settings))
+        judge = get_llm(judge_settings(settings, args.judge_model))
+        report = run_eval(agent, judge, cases, settings, pause_s=args.pause)
+    except ACPError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print("\n" + render_markdown(report["summary"]))
+    print(f"\nSaved {REPORT_PATH} and rows in {settings.db_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
