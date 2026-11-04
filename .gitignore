@@ -27,3 +27,7 @@ data/faiss_index/
 *.db-shm
 *.db-wal
 *.db-journal
+
+# downloaded public benchmark slices (fetched on demand; see docs/DATA_SOURCES.md)
+data/benchmarks/
+data/faiss_squad2/

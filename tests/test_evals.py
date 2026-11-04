@@ -174,7 +174,7 @@ def test_judge_labels_are_valid_and_match_corpus():
     assert len(items) >= 30 and len({i["id"] for i in items}) == len(items)
     assert any(i["unsupported"] for i in items) and any(not i["unsupported"] for i in items)
     for i in items:
-        assert context_for(i["sources"], chunks)
+        assert context_for(i, chunks)
 
 
 def test_judge_check_scoring_and_run_with_fake_judge():

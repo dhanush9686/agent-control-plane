@@ -126,8 +126,8 @@ Eval `4276d06599`, 19 questions, 0 errors, data in `results/eval_report.json`:
 
 | Original limitation | Now | Still true |
 |---|---|---|
-| Tiny corpus (13 chunks), 19 questions | Corpus is 31 chunks (adds six Nolan films, a thin entry and a "not one universe" note); golden set is 58 questions across the same six categories, with questions the model likely *knows* but the KB lacks (must refuse); 95% Wilson confidence intervals on every rate | Still small and **author-written in the author's own words**, not a benchmark. Intervals at n=58 are still wide |
-| Judge shares the answerer's blind spots; one call | Grader defaults to a different model family (`qwen/qwen3.8-27b`); claim extraction and verification are separate calls; a 38-item labelled set measures the grader's accuracy (`make judge-check`); refusal sentences filtered deterministically | **The grader-accuracy numbers have not been produced yet.** The labels are author-written adversarial cases, not independent human annotation (drop real labels in `evals/judge_labels_human.yaml`). LLM judges remain imperfect and vary run to run |
+| Tiny corpus (13 chunks), 19 questions | **Public-data slice added:** a 131-paragraph SQuAD 2.0 knowledge base with 60 human-written questions, half unanswerable (`make benchmarks`, `make eval-squad`; built and smoke-tested, full run pending). Own corpus is 31 chunks (adds six Nolan films, a thin entry and a "not one universe" note); golden set is 58 questions across the same six categories, with questions the model likely *knows* but the KB lacks (must refuse); 95% Wilson confidence intervals on every rate | The film corpus is still author-written, not a benchmark; the SQuAD slice is real but small and has known label noise (see `docs/DATA_SOURCES.md`). Intervals at n=58-60 are still wide |
+| Judge shares the answerer's blind spots; one call | Grader defaults to a different model family (`qwen/qwen3.8-27b`); claim extraction and verification are separate calls; a 38-item author-written labelled set (`make judge-check`) **plus 80 human-annotated items from RAGTruth and FEVER** (`make judge-check-human`, downloaded on demand) measure the grader's accuracy; refusal sentences filtered deterministically | **The grader-accuracy numbers have not been produced yet** (only an 8-item smoke check: 7/8 agreed with the human labels, which is a pipeline check, not a result). The 38 author-written labels are still not independent, but the RAGTruth/FEVER labels are. LLM judges remain imperfect and vary run to run |
 | Coarse keyword checks | Unchanged | Still coarse; the grounding judge, not keywords, catches wrong facts |
 | Cost estimated, latency includes waits | Price table now covers all three free models; documented that real free-tier spend is $0 | Still an estimate; latency still includes rate-limit waits |
 | Tracing synchronous, local SQLite | Optional `batch` mode (background thread) and `kafka` mode (stream to a topic, consumer writes SQLite); SQLite in WAL mode for parallel eval workers | Default is still direct SQLite; not built for high volume |
@@ -146,6 +146,7 @@ These exist, are covered by tests (62 offline tests; 3 live tests are skipped by
 | **Kafka trace streaming** (`ACP_TRACE_MODE=kafka`) | **End-to-end with a real Kafka broker**: the agent published 6 spans, the consumer stored them in SQLite (1 run, correct tokens); failure of the broker never crashes the agent (unit test) | Not load tested; single broker |
 | **Kubernetes** | Dashboard Deployment (2 replicas) + Service built and **deployed to a local minikube** and served the page and data over a port-forward; the eval CronJob manifest passes the API server's `--dry-run=server` | The CronJob/eval image was **not built or run**; nothing deployed to a public cluster |
 | **Scheduled eval + trends** | Trend chart renders from `results/history.jsonl` (two real evals so far); workflow file written | Workflow never run on GitHub (needs the secret) |
+| **Public-data benchmarks** (SQuAD 2.0 agent eval; RAGTruth + FEVER grader eval) | Datasets downloaded with permission; converters unit-tested; smoke runs: 4 SQuAD questions (2 pass, 2 fail for data/grader-nuance reasons) and 8 grader items (7/8 agree) | Full 60-question and 80-item runs not done yet (free-tier quota) |
 | **Grader accuracy** | Harness, labels and metrics tested with a fake judge; an interrupted live run on Qwen got through 35 of 38 items before I stopped it: 32 matched the labels, 0 disagreed, 3 failed on API errors (rate limits / malformed JSON). That is a progress log, not a saved report | No complete, recorded accuracy figure |
 
 To produce the pending results once the quota is available (e.g. the next day, or with `ACP_JUDGE_MODEL`/`--agent-model openai/gpt-oss-20b` to use a different model's quota):
@@ -153,6 +154,9 @@ To produce the pending results once the quota is available (e.g. the next day, o
 ```bash
 make eval            # 58 questions, full agent
 make eval-naive      # same questions, baseline
+make benchmarks      # one-time: download public dataset slices (see docs/DATA_SOURCES.md)
+make squad-index && make eval-squad   # 60 human-written SQuAD 2.0 questions
+make judge-check-human                 # grade the grader on RAGTruth + FEVER human labels
 make compare A=<graph_eval_id> B=<naive_eval_id>
 make judge-check
 make export          # refresh dashboard/data
@@ -161,7 +165,7 @@ make export          # refresh dashboard/data
 ## Still not built
 
 - A *public* cluster deployment, managed Kafka, or a hosted graph database (everything here runs locally and free).
-- Independently human-labelled grounding data (the harness for it exists; the labels do not).
+- A full run over the public benchmarks (the slices, loaders and tests exist; the large runs are pending quota).
 - Evals that run in CI on every push (deliberately on a schedule, because they use API quota).
 
 ## Design decisions

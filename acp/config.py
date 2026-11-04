@@ -55,8 +55,13 @@ class Settings:
     trace_mode: str = field(default_factory=lambda: os.environ.get("ACP_TRACE_MODE", "sync"))  # sync | batch | kafka
     kafka_bootstrap: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_BOOTSTRAP", "localhost:19092"))
     kafka_topic: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_TOPIC", "acp.spans"))
-    corpus_path: Path = ROOT / "data" / "corpus.txt"
-    index_path: Path = ROOT / "data" / "faiss_index"
+    # Point these at another knowledge base (e.g. the SQuAD 2.0 slice) with ACP_CORPUS_PATH / ACP_INDEX_PATH.
+    corpus_path: Path = field(
+        default_factory=lambda: Path(os.environ.get("ACP_CORPUS_PATH", ROOT / "data" / "corpus.txt"))
+    )
+    index_path: Path = field(
+        default_factory=lambda: Path(os.environ.get("ACP_INDEX_PATH", ROOT / "data" / "faiss_index"))
+    )
     db_path: Path = field(default_factory=lambda: Path(os.environ.get("ACP_DB_PATH", ROOT / "data" / "traces.db")))
     prices: dict[str, tuple[float, float]] = field(default_factory=load_prices)
 

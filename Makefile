@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 Q ?= Who kills Garuda, and how does Rocky's story end?
 
-.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up
+.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human
 
 setup:  ## create venv, install deps, build the search index
 	python3 -m venv .venv
@@ -66,3 +66,17 @@ neo4j:  ## load the lineage graph into the local Neo4j
 k8s-up:  ## deploy the dashboard to the current kube context (e.g. minikube)
 	docker build -f Dockerfile.dashboard -t acp-dashboard:0.1 .
 	kubectl apply -f k8s/dashboard.yaml
+
+benchmarks:  ## download small public dataset slices (SQuAD 2.0, RAGTruth, FEVER) into data/benchmarks (gitignored)
+	$(PY) scripts/fetch_benchmarks.py
+
+squad-index:  ## build the search index for the SQuAD 2.0 knowledge base
+	ACP_CORPUS_PATH=data/benchmarks/squad2/corpus.txt ACP_INDEX_PATH=data/faiss_squad2 $(PY) build_index.py
+
+eval-squad:  ## 60 human-written SQuAD 2.0 questions (30 answerable, 30 unanswerable)
+	ACP_CORPUS_PATH=data/benchmarks/squad2/corpus.txt ACP_INDEX_PATH=data/faiss_squad2 \
+	$(PY) -m acp.evals --golden data/benchmarks/squad2/golden.yaml --workers 3 --label squad2
+
+judge-check-human:  ## grade the grader on human-annotated RAGTruth + FEVER items
+	$(PY) -m acp.evals.judge_check --judge-model qwen/qwen3.8-27b \
+	  --labels data/benchmarks/judge_ragtruth.jsonl data/benchmarks/judge_fever.jsonl

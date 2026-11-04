@@ -82,3 +82,8 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 
 ## 19. Kubernetes: what is and is not verified
 - The static dashboard Deployment/Service was built and deployed to a local minikube and served correctly through a port-forward. The eval CronJob manifest was validated by the API server (`--dry-run=server`) but not executed (large image, needs a key).
+
+## 20. Public human-made data, fetched not committed
+- **Why:** our corpus and grader labels are author-written. SQuAD 2.0 gives human-written answerable *and unanswerable* questions (a refusal test the author did not design); RAGTruth and FEVER give grader labels made by human annotators. Results are reported per dataset and never blended with the author-written labels.
+- **Fetched, not committed:** two of the three dataset cards state no redistribution licence, so `make benchmarks` downloads small seeded slices through the public Hugging Face rows API into a gitignored folder, with a manifest.
+- **Caveat we saw immediately:** SQuAD 2.0 "unanswerable" questions are sometimes negation tricks that can be answered truthfully, and a strict grader may correctly reject a dropped qualifier ("most"); expect a ceiling below 100%. We report it instead of cleaning the data to look better.
