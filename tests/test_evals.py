@@ -230,3 +230,28 @@ def test_sign_test_and_compare():
     out = compare(ev("a", "graph", [True, True, True, False]), ev("b", "naive", [True, False, False, False]))
     assert out["only_a_passes"] == ["c1", "c2"] and out["only_b_passes"] == []
     assert out["n_shared"] == 4 and out["a"]["avg_llm_calls"] == 2
+
+
+def test_history_append_is_idempotent_and_skips_smoke_runs(tmp_path):
+    from acp import history
+
+    path = tmp_path / "h.jsonl"
+    full = history.entry_from_eval(
+        "e1", "2026-01-01T00:00:00", "m", {"n_cases": 58, "pass_rate": 0.9, "agent": "graph"}
+    )
+    smoke = history.entry_from_eval("e2", "2026-01-02T00:00:00", "m", {"n_cases": 3, "pass_rate": 1.0})
+    assert history.append_missing([full, smoke], path) == 1
+    assert history.append_missing([full], path) == 0
+    loaded = history.load(path)
+    assert [e["eval_id"] for e in loaded] == ["e1"] and loaded[0]["pass_rate"] == 0.9
+
+
+def test_run_eval_appends_history(settings, tmp_path):
+    from acp import history
+
+    agent = Agent(FakeLLM(answer="Prashanth Neel directed it [KGF 1]"), FakeRetriever(), settings, Tracing(settings))
+    judge = FakeLLM()
+    cases = [GoldenCase(f"t{i}", "answerable", "q", "answer", [["Prashanth Neel"]]) for i in range(10)]
+    hp = tmp_path / "hist.jsonl"
+    run_eval(agent, judge, cases, settings, report_path=tmp_path / "r.json", progress=lambda *_: None, history_path=hp)
+    assert len(history.load(hp)) == 1

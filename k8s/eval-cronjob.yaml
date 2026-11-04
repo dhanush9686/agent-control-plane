@@ -1,0 +1,27 @@
+# Weekly golden-set eval as a Kubernetes CronJob. NOT run end-to-end in this repo's testing (the image is large and
+# needs a key); it is validated against a real API server with `kubectl apply --dry-run=server`.
+#   docker build -f Dockerfile.eval -t acp-eval:0.1 .
+#   kubectl create secret generic groq --from-literal=GROQ_API_KEY=...      # your free Groq key
+#   kubectl apply -f k8s/eval-cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: acp-weekly-eval
+spec:
+  schedule: "17 5 * * 1"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: eval
+              image: acp-eval:0.1
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef: {name: groq}
+              resources:
+                requests: {cpu: 250m, memory: 1Gi}
+                limits: {memory: 2Gi}

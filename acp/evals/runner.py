@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from acp import store
+from acp import history, store
 from acp.config import ROOT, Settings
 from acp.errors import ACPError
 from acp.evals import checks
@@ -82,6 +82,7 @@ def run_eval(
     report_path: Path = REPORT_PATH,
     progress: Any = print,
     label: str | None = None,
+    history_path: Path | None = history.HISTORY_PATH,
 ) -> dict[str, Any]:
     eval_id = uuid.uuid4().hex[:10]
     results = []
@@ -122,6 +123,14 @@ def run_eval(
             )
     finally:
         conn.close()
+    if history_path is not None:  # best-effort: a failed history write must not lose the finished eval
+        try:
+            history.append_missing(
+                [history.entry_from_eval(eval_id, report["created_at"], settings.model, report["summary"])],
+                history_path,
+            )
+        except OSError:
+            progress("warning: could not append to eval history")
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))
     return report
