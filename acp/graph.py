@@ -11,6 +11,8 @@ function, and the framework can show/trace the path taken.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from langgraph.graph import END, START, StateGraph
 
 from acp.config import Settings
@@ -32,11 +34,11 @@ def make_router(max_attempts: int):
     return route_after_judge
 
 
-def build_graph(llm: LLM, retriever: Retriever, settings: Settings):
+def build_graph(llm: LLM, retriever: Retriever, settings: Settings, wrap_node: Callable | None = None):
     nodes = make_nodes(llm, retriever, settings)
     g = StateGraph(AgentState)
     for name, fn in nodes.items():
-        g.add_node(name, fn)
+        g.add_node(name, wrap_node(name, fn) if wrap_node else fn)
     g.add_edge(START, "retrieve")
     g.add_edge("retrieve", "judge")
     g.add_conditional_edges(
