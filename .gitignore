@@ -1,0 +1,26 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# local databases (the sample traces file is allowed back in below)
+*.db
+*.sqlite
+*.sqlite3
+!dashboard/data/*.json
+
+# misc
+.DS_Store
+.vercel/
+node_modules/
+
+# built artifacts (rebuilt by `make setup`)
+data/faiss_index/
