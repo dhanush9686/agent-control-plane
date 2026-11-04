@@ -8,7 +8,9 @@ is plenty for thousands of runs (see docs/DECISIONS.md).
 
 from __future__ import annotations
 
+import random
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -164,15 +166,33 @@ def _migrate(conn: sqlite3.Connection) -> None:
         raise
 
 
-def connect(path: Path | str) -> sqlite3.Connection:
-    """Open (and migrate if needed) the database."""
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=30)
-    conn.row_factory = sqlite3.Row
+def _setup(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA busy_timeout=30000")  # wait for other writers instead of failing (parallel workers)
     conn.execute("PRAGMA journal_mode=WAL")  # readers never block the writer
     _migrate(conn)
-    return conn
+
+
+def connect(path: Path | str) -> sqlite3.Connection:
+    """Open (and migrate if needed) the database.
+
+    The very first open of a brand-new file by several processes at once can still report "database is locked"
+    (switching to WAL mode does not honour the busy timeout), so setup is retried briefly with jitter.
+    """
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), timeout=30)
+    conn.row_factory = sqlite3.Row
+    for attempt in range(12):
+        try:
+            _setup(conn)
+            return conn
+        except sqlite3.OperationalError as e:
+            if "locked" not in str(e).lower() or attempt == 11:
+                conn.close()
+                raise
+            if conn.in_transaction:
+                conn.rollback()
+            time.sleep(0.05 * (attempt + 1) + random.random() * 0.05)
+    return conn  # unreachable; keeps type checkers happy
 
 
 def fetch_runs(conn: sqlite3.Connection, limit: int = 100) -> list[dict[str, Any]]:
