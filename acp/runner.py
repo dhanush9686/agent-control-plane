@@ -36,24 +36,46 @@ class Agent:
             kind=kind,
         )
 
-    def ask(self, question: str) -> tuple[AgentState, str | None]:
-        """Returns (final_state, run_id). run_id is None when tracing is off."""
+    def ask(
+        self, question: str, *, user_id: str | None = None, doc_id: str | None = None
+    ) -> tuple[AgentState, str | None]:
+        """Returns (final_state, run_id). run_id is None when tracing is off.
+
+        `user_id` / `doc_id` tag the trace so a user can later see (and delete) only their own runs.
+        """
         if self.tracing is None:
             return self._graph.invoke(initial_state(question)), None
-        with self.tracing.run(question) as (run_id, sp):
+        with self.tracing.run(question, user_id=user_id, doc_id=doc_id) as (run_id, sp):
             final = self._graph.invoke(initial_state(question))
             sp.attr(
                 answer=final.get("answer"),
                 attempts=final.get("search_attempts"),
                 sufficient=int(bool(final.get("sufficient_context"))),
-                retrieved_json=json.dumps(
-                    [
-                        {"source": d.metadata.get("source"), "text": d.page_content}
-                        for d in final.get("retrieved_docs", [])
-                    ]
-                ),
+                retrieved_json=json.dumps(self._retrieved_for_trace(final.get("retrieved_docs", []))),
             )
             return final, run_id
+
+    def _retrieved_for_trace(self, docs: list[Any]) -> list[dict[str, Any]]:
+        """What to remember about the retrieved chunks.
+
+        The built-in corpus keeps full text (the dashboard shows it). Chunks from a user's uploaded document keep
+        only ids and page numbers unless ACP_STORE_CHUNK_TEXT=1, so a trace cannot become a second copy of their
+        private document.
+        """
+        out = []
+        for d in docs:
+            if "citation" in d.metadata and not self.settings.store_chunk_text:
+                out.append(
+                    {
+                        "source": d.metadata.get("source"),
+                        "citation": d.metadata.get("citation"),
+                        "page": d.metadata.get("page"),
+                        "chunk_id": d.metadata.get("chunk_id"),
+                    }
+                )
+            else:
+                out.append({"source": d.metadata.get("source"), "text": d.page_content})
+        return out
 
 
 def summarize_run(db_path: Any, run_id: str) -> dict[str, Any] | None:

@@ -54,6 +54,15 @@ class SlidingWindow:
             q.append(now)
             return 0.0
 
+    def peek(self, key: str) -> float:
+        """Like hit() but records nothing: 0.0 if another event would be allowed, else the wait."""
+        now = self._clock()
+        with self._lock:
+            q = self._events[key]
+            while q and now - q[0] >= self.window:
+                q.popleft()
+            return 0.0 if len(q) < self.limit else q[0] + self.window - now
+
 
 class DailyQuota:
     """Per-user daily counters in SQLite (asks, uploads). The increment is atomic, so two simultaneous requests can
@@ -81,6 +90,18 @@ class DailyQuota:
 
     def consume_ask(self, user_id: str, limit: int) -> float:
         return self._consume(user_id, "asks", limit)
+
+    def refund_ask(self, user_id: str) -> None:
+        """Give back one ask (the question was refused before it ran, e.g. shared budget exhausted)."""
+        conn = self._conn_factory()
+        try:
+            with conn:
+                conn.execute(
+                    "UPDATE usage SET asks = MAX(asks - 1, 0) WHERE user_id=? AND day=?",
+                    (user_id, _utc_day(self._utc_now())),
+                )
+        finally:
+            conn.close()
 
     def consume_upload(self, user_id: str, limit: int) -> float:
         return self._consume(user_id, "uploads", limit)

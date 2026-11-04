@@ -299,13 +299,20 @@ class Tracing:
                 log.exception("could not end span %s", name)
 
     @contextmanager
-    def run(self, question: str) -> Iterator[tuple[str, SpanHandle]]:
+    def run(
+        self, question: str, user_id: str | None = None, doc_id: str | None = None
+    ) -> Iterator[tuple[str, SpanHandle]]:
         """Root span for one question. Yields (run_id, handle); one run_id per question."""
         run_id = uuid.uuid4().hex[:12]
         token = _run_id.set(run_id)
         token_t0 = _run_start_ns.set(time.time_ns())
         try:
-            with self.span("agent.run", "run", {"acp.question": question}) as sp:
+            attrs: dict[str, Any] = {"acp.question": question}
+            if user_id:
+                attrs["acp.user_id"] = user_id
+            if doc_id:
+                attrs["acp.doc_id"] = doc_id
+            with self.span("agent.run", "run", attrs) as sp:
                 yield run_id, sp
         finally:
             _run_id.reset(token)

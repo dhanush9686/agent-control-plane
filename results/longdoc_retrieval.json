@@ -2,6 +2,7 @@
   "pages": 450,
   "chunks": 1437,
   "embedder": "MiniLMEmbedder",
+  "vector_store": "pinecone",
   "needles": {
     "dense": {
       "n": 25,

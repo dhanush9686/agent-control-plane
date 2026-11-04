@@ -160,3 +160,65 @@ def test_kafka_exporter_failure_never_crashes_agent(settings):
     tracing = Tracing(settings, mode="kafka", exporter=KafkaSpanExporter(Broken()))
     final, _ = Agent(FakeLLM(), FakeRetriever(), settings, tracing).ask("who?")
     assert final["answer"]
+
+
+def test_runs_are_tagged_with_user_and_document(settings):
+    tracing = Tracing(settings)
+    agent = Agent(FakeLLM(), FakeRetriever(), settings, tracing)
+    _, run_id = agent.ask("who?", user_id="u" * 16, doc_id="d" * 16)
+    row = (
+        store.connect(settings.db_path).execute("SELECT user_id, doc_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
+    )
+    assert tuple(row) == ("u" * 16, "d" * 16)
+    _, plain = agent.ask("again")  # untagged runs (the CLI) still work
+    assert (
+        store.connect(settings.db_path).execute("SELECT user_id FROM runs WHERE run_id=?", (plain,)).fetchone()[0]
+        is None
+    )
+
+
+def test_uploaded_document_text_is_not_kept_in_traces_by_default(settings):
+    import json
+
+    from langchain_core.documents import Document
+
+    class DocRetr:
+        def search(self, q, k):
+            return [
+                Document(
+                    page_content="SECRET PRIVATE TEXT",
+                    metadata={"source": "a.pdf", "citation": "a.pdf p.3", "page": 3, "chunk_id": 9},
+                )
+            ]
+
+    agent = Agent(FakeLLM(), DocRetr(), settings, Tracing(settings))
+    _, run_id = agent.ask("q")
+    raw = (
+        store.connect(settings.db_path)
+        .execute("SELECT retrieved_json FROM runs WHERE run_id=?", (run_id,))
+        .fetchone()[0]
+    )
+    assert "SECRET" not in raw and json.loads(raw)[0] == {
+        "source": "a.pdf",
+        "citation": "a.pdf p.3",
+        "page": 3,
+        "chunk_id": 9,
+    }
+
+
+def test_chunk_text_is_kept_when_explicitly_enabled(tmp_path):
+    import json
+
+    from langchain_core.documents import Document
+
+    from acp.config import Settings
+
+    s = Settings(db_path=tmp_path / "t.db", store_chunk_text=True)
+
+    class DocRetr:
+        def search(self, q, k):
+            return [Document(page_content="VISIBLE TEXT", metadata={"source": "a.pdf", "citation": "a.pdf p.3"})]
+
+    _, run_id = Agent(FakeLLM(), DocRetr(), s, Tracing(s)).ask("q")
+    raw = store.connect(s.db_path).execute("SELECT retrieved_json FROM runs WHERE run_id=?", (run_id,)).fetchone()[0]
+    assert json.loads(raw)[0]["text"] == "VISIBLE TEXT"
