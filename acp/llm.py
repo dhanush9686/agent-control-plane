@@ -104,7 +104,7 @@ class GroqLLM:
                 time.sleep(delay)
         raise LLMUnavailableError(
             f"The LLM call failed after {self._settings.llm_max_retries} retries "
-            f"({type(last).__name__}). Likely a rate limit or outage: wait a minute and retry."
+            f"({type(last).__name__}: {str(last)[:160]}). Likely a rate limit or outage: wait a minute and retry."
         ) from last
 
     @staticmethod

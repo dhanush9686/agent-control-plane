@@ -41,6 +41,8 @@ def main(argv: list[str]) -> int:
     for src, dst in (("comparison.json", "comparison.json"), ("judge_accuracy.json", "judge.json")):
         if (ROOT / "results" / src).is_file():
             shutil.copy(ROOT / "results" / src, OUT.parent / dst)
+        else:  # always write the file (as JSON null) so the static site never requests a missing URL (no 404s)
+            (OUT.parent / dst).write_text("null")
     print(f"history: {added} new entr{'y' if added == 1 else 'ies'} added to results/history.jsonl")
     print(f"wrote {OUT} ({len(data['evals'])} evals, {sum(len(e['runs']) for e in data['evals'])} runs)")
     return 0
