@@ -77,7 +77,14 @@ def score(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def run_judge_check(judge: LLM, items: list[dict[str, Any]], chunks: list[Document], progress: Any = print) -> dict:
     rows = []
     for it in items:
-        res = evaluate_grounding(judge, it.get("question", "(n/a)"), it["answer"], context_for(it["sources"], chunks))
+        try:
+            res = evaluate_grounding(
+                judge, it.get("question", "(n/a)"), it["answer"], context_for(it["sources"], chunks)
+            )
+        except ACPError as e:  # one flaky call must not throw away the other 37 results
+            progress(f"{it['id']} ERROR {e}")
+            rows.append({"id": it["id"], "kind": it["kind"], "error": str(e), "labelled_by": it["labelled_by"]})
+            continue
         row = {
             "id": it["id"],
             "kind": it["kind"],
@@ -88,7 +95,8 @@ def run_judge_check(judge: LLM, items: list[dict[str, Any]], chunks: list[Docume
         }
         rows.append(row)
         progress(f"{it['id']} {'ok ' if row['label'] == row['predicted'] else 'MISS'} {it['kind']}")
-    return {"judge_model": judge.model, **score(rows), "rows": rows}
+    scored = [r for r in rows if "error" not in r]
+    return {"judge_model": judge.model, "n_errors": len(rows) - len(scored), **score(scored), "rows": rows}
 
 
 def main(argv: list[str] | None = None) -> int:

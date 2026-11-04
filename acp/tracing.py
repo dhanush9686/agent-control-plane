@@ -27,7 +27,7 @@ from typing import Any, TypeVar
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter, SpanExportResult
 from pydantic import BaseModel
 
 from acp import store
@@ -42,7 +42,92 @@ _run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("acp_run_id
 _run_start_ns: contextvars.ContextVar[int | None] = contextvars.ContextVar("acp_run_start_ns", default=None)
 
 
-# ---------------------------------------------------------------- exporter ---
+# ---------------------------------------------------------------- records ---
+def span_to_record(s: ReadableSpan) -> dict[str, Any] | None:
+    """Flatten a finished OTel span into a plain JSON-able dict (the unit we store or stream).
+
+    Analogy: turning a camera's raw footage into a one-line log entry. Everything downstream (SQLite writer,
+    Kafka producer/consumer) speaks this dict, so they never touch OpenTelemetry objects.
+    """
+    a = dict(s.attributes or {})
+    run_id = a.get("acp.run_id")
+    if not run_id:
+        return None  # not ours (e.g. some other library's span)
+    return {
+        "span_id": format(s.context.span_id, "016x"),
+        "run_id": run_id,
+        "parent_id": format(s.parent.span_id, "016x") if s.parent else None,
+        "name": s.name,
+        "kind": a.get("acp.kind", "node"),
+        "start_ns": s.start_time,
+        "end_ns": s.end_time,
+        "run_start_ns": a.get("acp.run_start_ns", s.start_time),
+        "status": "ok" if s.status.status_code != trace.StatusCode.ERROR else "error",
+        "input_tokens": a.get("acp.input_tokens"),
+        "output_tokens": a.get("acp.output_tokens"),
+        "cost_usd": a.get("acp.cost_usd"),
+        "retries": a.get("acp.retries"),
+        "question": a.get("acp.question", ""),
+        "error": a.get("acp.error"),
+        "attrs": {k.removeprefix("acp.attr."): v for k, v in a.items() if k.startswith("acp.attr.")},
+    }
+
+
+def write_record(conn: sqlite3.Connection, r: dict[str, Any]) -> None:
+    """Insert one span record; when it is the run's root span, also upsert the `runs` summary row.
+
+    Idempotent (INSERT OR REPLACE), so replaying a Kafka message twice is harmless.
+    """
+    latency_ms = (r["end_ns"] - r["start_ns"]) / 1e6
+    extra = r["attrs"]
+    conn.execute(
+        "INSERT OR REPLACE INTO spans VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            r["span_id"],
+            r["run_id"],
+            r["parent_id"],
+            r["name"],
+            r["kind"],
+            (r["start_ns"] - r["run_start_ns"]) / 1e6,
+            latency_ms,
+            r["status"],
+            r["input_tokens"],
+            r["output_tokens"],
+            r["cost_usd"],
+            r["retries"],
+            json.dumps(extra, default=str),
+        ),
+    )
+    if r["kind"] == "run":  # the root span closes last, so its children are already in the table
+        agg = conn.execute(
+            "SELECT COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0), "
+            "COALESCE(SUM(cost_usd),0), COUNT(*), COALESCE(SUM(retries),0) "
+            "FROM spans WHERE run_id=? AND kind='llm'",
+            (r["run_id"],),
+        ).fetchone()
+        conn.execute(
+            "INSERT OR REPLACE INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                r["run_id"],
+                r["question"],
+                datetime.fromtimestamp(r["start_ns"] / 1e9, tz=UTC).isoformat(timespec="seconds"),
+                latency_ms,
+                r["status"],
+                r["error"],
+                extra.get("answer"),
+                extra.get("attempts"),
+                extra.get("sufficient"),
+                agg[0],
+                agg[1],
+                agg[2],
+                agg[3],
+                agg[4],
+                extra.get("retrieved_json"),
+            ),
+        )
+
+
+# ---------------------------------------------------------------- exporters ---
 class SQLiteSpanExporter(SpanExporter):
     """Receives finished spans from OpenTelemetry and writes them into SQLite."""
 
@@ -56,7 +141,8 @@ class SQLiteSpanExporter(SpanExporter):
             try:
                 with conn:  # one transaction per batch
                     for s in spans:
-                        self._write_span(conn, s)
+                        if (rec := span_to_record(s)) is not None:
+                            write_record(conn, rec)
             finally:
                 conn.close()
             return SpanExportResult.SUCCESS
@@ -67,62 +153,35 @@ class SQLiteSpanExporter(SpanExporter):
     def shutdown(self) -> None:  # nothing to release: we open a connection per batch
         pass
 
-    @staticmethod
-    def _write_span(conn: sqlite3.Connection, s: ReadableSpan) -> None:
-        a = dict(s.attributes or {})
-        run_id = a.get("acp.run_id")
-        if not run_id:
-            return  # not ours (e.g. some other library's span)
-        kind = a.get("acp.kind", "node")
-        latency_ms = (s.end_time - s.start_time) / 1e6
-        status = "ok" if s.status.status_code != trace.StatusCode.ERROR else "error"
-        extra = {k.removeprefix("acp.attr."): v for k, v in a.items() if k.startswith("acp.attr.")}
-        run_start_ns = a.get("acp.run_start_ns", s.start_time)
-        conn.execute(
-            "INSERT OR REPLACE INTO spans VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                format(s.context.span_id, "016x"),
-                run_id,
-                format(s.parent.span_id, "016x") if s.parent else None,
-                s.name,
-                kind,
-                (s.start_time - run_start_ns) / 1e6,
-                latency_ms,
-                status,
-                a.get("acp.input_tokens"),
-                a.get("acp.output_tokens"),
-                a.get("acp.cost_usd"),
-                a.get("acp.retries"),
-                json.dumps(extra, default=str),
-            ),
-        )
-        if kind == "run":  # the root span closes last, so children are already in the table
-            agg = conn.execute(
-                "SELECT COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0), "
-                "COALESCE(SUM(cost_usd),0), COUNT(*), COALESCE(SUM(retries),0) "
-                "FROM spans WHERE run_id=? AND kind='llm'",
-                (run_id,),
-            ).fetchone()
-            conn.execute(
-                "INSERT OR REPLACE INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    run_id,
-                    a.get("acp.question", ""),
-                    datetime.fromtimestamp(s.start_time / 1e9, tz=UTC).isoformat(timespec="seconds"),
-                    latency_ms,
-                    status,
-                    a.get("acp.error"),
-                    extra.get("answer"),
-                    extra.get("attempts"),
-                    extra.get("sufficient"),
-                    agg[0],
-                    agg[1],
-                    agg[2],
-                    agg[3],
-                    agg[4],
-                    extra.get("retrieved_json"),
-                ),
-            )
+
+class KafkaSpanExporter(SpanExporter):
+    """Publishes span records to a Kafka topic instead of writing SQLite directly.
+
+    Analogy: instead of filing each sheet yourself, you drop it in the outbox; a separate clerk
+    (scripts/kafka_consumer.py) files it. The agent never waits on the database. Messages are keyed by run_id
+    so all spans of one run stay in order on one partition (children before the root).
+    `producer` is anything with produce(topic, key, value) and flush(): confluent_kafka.Producer or a fake.
+    """
+
+    def __init__(self, producer: Any, topic: str = "acp.spans") -> None:
+        self._producer, self._topic = producer, topic
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        try:
+            for s in spans:
+                if (rec := span_to_record(s)) is not None:
+                    self._producer.produce(self._topic, key=rec["run_id"], value=json.dumps(rec, default=str))
+            self._producer.flush(5)
+            return SpanExportResult.SUCCESS
+        except Exception:  # noqa: BLE001
+            log.exception("kafka export failed (agent unaffected)")
+            return SpanExportResult.FAILURE
+
+    def shutdown(self) -> None:
+        try:
+            self._producer.flush(5)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ------------------------------------------------------------- span helper ---
@@ -164,12 +223,43 @@ class SpanHandle:
 class Tracing:
     """Owns one TracerProvider wired to the SQLite exporter."""
 
-    def __init__(self, settings: Settings, db_path: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        db_path: Path | str | None = None,
+        mode: str | None = None,
+        exporter: SpanExporter | None = None,
+    ) -> None:
+        """mode: "sync" (default; write before returning), "batch" (background thread, faster for the agent),
+        or "kafka" (stream to a topic; needs `exporter` or ACP_KAFKA_BOOTSTRAP). Override with ACP_TRACE_MODE."""
         self.settings = settings
         self.db_path = Path(db_path or settings.db_path)
+        self.mode = mode or settings.trace_mode
         self._provider = TracerProvider()  # private provider: no global state, tests stay isolated
-        self._provider.add_span_processor(SimpleSpanProcessor(SQLiteSpanExporter(self.db_path)))
+        exp = exporter or self._make_exporter()
+        processor = (
+            BatchSpanProcessor(exp, schedule_delay_millis=500) if self.mode == "batch" else SimpleSpanProcessor(exp)
+        )
+        self._provider.add_span_processor(processor)
         self._tracer = self._provider.get_tracer("acp")
+
+    def _make_exporter(self) -> SpanExporter:
+        if self.mode == "kafka":
+            from confluent_kafka import Producer  # optional dependency: requirements-streaming.txt
+
+            return KafkaSpanExporter(
+                Producer({"bootstrap.servers": self.settings.kafka_bootstrap}), self.settings.kafka_topic
+            )
+        if self.mode not in ("sync", "batch"):
+            raise ValueError(f"unknown trace mode {self.mode!r}; use sync, batch or kafka")
+        return SQLiteSpanExporter(self.db_path)
+
+    def flush(self) -> None:
+        """Wait until queued spans are written (a no-op in sync mode)."""
+        try:
+            self._provider.force_flush(10_000)
+        except Exception:  # noqa: BLE001
+            log.debug("flush failed", exc_info=True)
 
     @contextmanager
     def span(self, name: str, kind: str, attrs: dict[str, Any] | None = None) -> Iterator[SpanHandle]:
@@ -213,6 +303,8 @@ class Tracing:
         finally:
             _run_id.reset(token)
             _run_start_ns.reset(token_t0)
+            if self.mode == "batch":
+                self.flush()  # so callers can read the run right after it returns
 
     def shutdown(self) -> None:
         try:

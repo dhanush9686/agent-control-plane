@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from acp import store  # noqa: E402
 from acp.config import get_settings  # noqa: E402
-from acp.export import build_export  # noqa: E402
+from acp.export import build_export, lineage_cypher, strip_private  # noqa: E402
 
 OUT = ROOT / "dashboard" / "data" / "traces.json"
 
@@ -26,6 +26,9 @@ def main(argv: list[str]) -> int:
     finally:
         conn.close()
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    (ROOT / "results").mkdir(exist_ok=True)
+    (ROOT / "results" / "lineage.cypher").write_text(lineage_cypher(data))
+    data = strip_private(data)
     OUT.write_text(json.dumps(data, indent=1, ensure_ascii=False))
     print(f"wrote {OUT} ({len(data['evals'])} evals, {sum(len(e['runs']) for e in data['evals'])} runs)")
     return 0

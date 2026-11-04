@@ -132,7 +132,12 @@ def test_end_to_end_eval_then_export(settings, tmp_path):
     latest = data["evals"][0]
     assert latest["runs"][0]["spans"] and latest["runs"][0]["retrieved"]
     assert latest["summary"]["n_cases"] == 1
-    assert "GROQ" not in json.dumps(data)
+    from acp.export import lineage_cypher, strip_private
+
+    assert "MERGE (n:Question" in lineage_cypher(data)
+    assert "_graph" not in strip_private(data)["evals"][0]
+    assert latest["doc_stats"]
+    assert "GROQ" not in json.dumps(strip_private(data))
 
 
 def test_export_without_eval_raises(settings):
@@ -193,3 +198,35 @@ def test_judge_check_scoring_and_run_with_fake_judge():
 
     out = run_judge_check(judge, items, load_and_chunk(get_settings().corpus_path), progress=lambda *_: None)
     assert out["accuracy"] == 1.0 and out["confusion"]["tp"] == 1
+
+
+def test_sign_test_and_compare():
+    from acp.evals.compare import compare, sign_test_p
+
+    assert sign_test_p(0, 0) == 1.0
+    assert sign_test_p(10, 0) < 0.01
+    assert sign_test_p(5, 5) == 1.0
+
+    def ev(eid, agent, passes):
+        res = {
+            f"c{i}": {
+                "passed": p,
+                "category": "x",
+                "expect": "answer",
+                "refused": False,
+                "behavior_failures": [],
+                "hallucinated": False,
+                "citation_ok": True,
+                "grounding_score": 1.0,
+                "latency_ms": 10.0,
+                "cost_usd": 0.0,
+                "error": None,
+                "llm_calls": 2,
+            }
+            for i, p in enumerate(passes)
+        }
+        return {"eval_id": eid, "summary": {"agent": agent, "agent_model": "m"}, "results": res}
+
+    out = compare(ev("a", "graph", [True, True, True, False]), ev("b", "naive", [True, False, False, False]))
+    assert out["only_a_passes"] == ["c1", "c2"] and out["only_b_passes"] == []
+    assert out["n_shared"] == 4 and out["a"]["avg_llm_calls"] == 2

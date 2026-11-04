@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-04T17:01:58+00:00",
+ "generated_at": "2026-11-04T17:17:48+00:00",
  "model": "openai/gpt-oss-120b",
  "evals": [
   {
@@ -79,7 +79,8 @@
       {
        "claim": "Prashanth Neel directed KGF: Chapter 1.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -110,12 +111,14 @@
       {
        "claim": "Ramika Sen is the Prime Minister",
        "supported": true,
-       "evidence": "Ramika Sen (Prime Minister and political antagonist)"
+       "evidence": "Ramika Sen (Prime Minister and political antagonist)",
+       "chunk_index": 1
       },
       {
        "claim": "Ramika Sen serves as the political antagonist in KGF: Chapter 2",
        "supported": true,
-       "evidence": "Ramika Sen (Prime Minister and political antagonist)"
+       "evidence": "Ramika Sen (Prime Minister and political antagonist)",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -147,7 +150,8 @@
       {
        "claim": "Salaar: Part 1 – Ceasefire (2023) is made in the Telugu language.",
        "supported": true,
-       "evidence": "Language: Telugu."
+       "evidence": "Language: Telugu.",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -178,7 +182,8 @@
       {
        "claim": "Shivanna, a Mumbai crime boss, sends Rocky to seize control of KGF.",
        "supported": true,
-       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda..."
+       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda...",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -209,12 +214,14 @@
       {
        "claim": "The knowledge base contains information about KGF: Chapter 2 (2022).",
        "supported": true,
-       "evidence": "[Source: KGF: Chapter 2 (2022)] Direct sequel to KGF: Chapter 1, same director."
+       "evidence": "[Source: KGF: Chapter 2 (2022)] Direct sequel to KGF: Chapter 1, same director.",
+       "chunk_index": null
       },
       {
        "claim": "The knowledge base contains information about Salaar: Part 1 – Ceasefire (2023).",
        "supported": true,
-       "evidence": "[Source: Salaar: Part 1 – Ceasefire (2023)] Director: Prashanth Neel. Language: Telugu."
+       "evidence": "[Source: Salaar: Part 1 – Ceasefire (2023)] Director: Prashanth Neel. Language: Telugu.",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -245,7 +252,8 @@
       {
        "claim": "Salaar was directed by Prashanth Neel.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -276,17 +284,20 @@
       {
        "claim": "The provided information identifies Deva as the protagonist of Salaar.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist)"
+       "evidence": "Key characters: Deva (protagonist)",
+       "chunk_index": 0
       },
       {
        "claim": "The provided information describes his role in the plot.",
        "supported": true,
-       "evidence": "Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him in a moment of crisis."
+       "evidence": "Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him in a moment of crisis.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information does not state which actor portrays him.",
        "supported": true,
-       "evidence": "The context only lists Deva as a character and describes plot; it contains no actor name."
+       "evidence": "The context only lists Deva as a character and describes plot; it contains no actor name.",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -317,22 +328,26 @@
       {
        "claim": "Garuda is killed by Rocky.",
        "supported": true,
-       "evidence": "in a final confrontation kills Garuda, taking control of the gold fields for himself."
+       "evidence": "in a final confrontation kills Garuda, taking control of the gold fields for himself.",
+       "chunk_index": 1
       },
       {
        "claim": "Rocky’s story ends with his own death.",
        "supported": true,
-       "evidence": "the film closes with Rocky's own death, orchestrated by the political forces that could not defeat him by force."
+       "evidence": "the film closes with Rocky's own death, orchestrated by the political forces that could not defeat him by force.",
+       "chunk_index": 2
       },
       {
        "claim": "His death is orchestrated by political forces.",
        "supported": true,
-       "evidence": "the film closes with Rocky's own death, orchestrated by the political forces that could not defeat him by force."
+       "evidence": "the film closes with Rocky's own death, orchestrated by the political forces that could not defeat him by force.",
+       "chunk_index": 2
       },
       {
        "claim": "His death occurs after he defeats Adheera.",
        "supported": true,
-       "evidence": "Rocky defeats Adheera in a large-scale final battle, but the film closes with Rocky's own death..."
+       "evidence": "Rocky defeats Adheera in a large-scale final battle, but the film closes with Rocky's own death...",
+       "chunk_index": 2
       }
      ],
      "unsupported_claims": [],
@@ -363,17 +378,20 @@
       {
        "claim": "The warlord Adheera appears in KGF: Chapter 2 (2022).",
        "supported": true,
-       "evidence": "Adheera, a scarred, near-mythic warlord who served the mine's original owners and wants revenge and control back"
+       "evidence": "Adheera, a scarred, near-mythic warlord who served the mine's original owners and wants revenge and control back",
+       "chunk_index": 0
       },
       {
        "claim": "The film ends with Rocky’s death.",
        "supported": true,
-       "evidence": "the film closes with Rocky's own death"
+       "evidence": "the film closes with Rocky's own death",
+       "chunk_index": 0
       },
       {
        "claim": "Rocky’s death is orchestrated by the political forces that could not defeat him by force.",
        "supported": true,
-       "evidence": "orchestrated by the political forces that could not defeat him by force"
+       "evidence": "orchestrated by the political forces that could not defeat him by force",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -406,17 +424,20 @@
       {
        "claim": "Ravi Basrur worked as the composer for KGF.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director and, for KGF and Salaar, composer Ravi Basrur"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director and, for KGF and Salaar, composer Ravi Basrur",
+       "chunk_index": 0
       },
       {
        "claim": "Ravi Basrur worked as the composer for Salaar.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director and, for KGF and Salaar, composer Ravi Basrur"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director and, for KGF and Salaar, composer Ravi Basrur",
+       "chunk_index": 0
       },
       {
        "claim": "Ravi Basrur worked as the composer for Dragon.",
        "supported": true,
-       "evidence": "Ravi Basrur, who scored both KGF films and Salaar, also composes Dragon's music."
+       "evidence": "Ravi Basrur, who scored both KGF films and Salaar, also composes Dragon's music.",
+       "chunk_index": 3
       }
      ],
      "unsupported_claims": [],
@@ -447,22 +468,26 @@
       {
        "claim": "Dragon follows Jr NTR’s character Luger.",
        "supported": true,
-       "evidence": "starring Jr NTR as a character named Luger"
+       "evidence": "starring Jr NTR as a character named Luger",
+       "chunk_index": 1
       },
       {
        "claim": "Luger is an assassin.",
        "supported": true,
-       "evidence": "an assassin connected to a colonial-era opium-smuggling syndicate"
+       "evidence": "an assassin connected to a colonial-era opium-smuggling syndicate",
+       "chunk_index": 1
       },
       {
        "claim": "Luger is linked to a colonial-era opium-smuggling syndicate.",
        "supported": true,
-       "evidence": "an assassin connected to a colonial-era opium-smuggling syndicate"
+       "evidence": "an assassin connected to a colonial-era opium-smuggling syndicate",
+       "chunk_index": 1
       },
       {
        "claim": "The story is built around the premise that British colonial control of India was largely maintained through its dominance of the opium trade.",
        "supported": true,
-       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade"
+       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -494,27 +519,32 @@
       {
        "claim": "The provided information about Dragon includes details on the director.",
        "supported": true,
-       "evidence": "Confirmed so far: directed by Prashanth Neel"
+       "evidence": "Confirmed so far: directed by Prashanth Neel",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the lead actor.",
        "supported": true,
-       "evidence": "starring Jr NTR as a character named Luger"
+       "evidence": "starring Jr NTR as a character named Luger",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the premise.",
        "supported": true,
-       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade."
+       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the supporting cast.",
        "supported": true,
-       "evidence": "Supporting cast includes Anil Kapoor, Biju Menon, and Rukmini Vasanth."
+       "evidence": "Supporting cast includes Anil Kapoor, Biju Menon, and Rukmini Vasanth.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon does not identify a main villain.",
        "supported": true,
-       "evidence": "No mention of a villain in the provided excerpts; only details about director, lead actor, premise, and supporting cast are given."
+       "evidence": "No mention of a villain in the provided excerpts; only details about director, lead actor, premise, and supporting cast are given.",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -544,7 +574,8 @@
       {
        "claim": "Dragon is currently slated for a June 2027 release.",
        "supported": true,
-       "evidence": "Currently slated for a June 2027 release, after facing earlier delays from its originally planned 2026 dates."
+       "evidence": "Currently slated for a June 2027 release, after facing earlier delays from its originally planned 2026 dates.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -576,22 +607,26 @@
       {
        "claim": "KGF and Salaar are not set in the same continuity.",
        "supported": true,
-       "evidence": "KGF and Salaar are not set in the same continuity."
+       "evidence": "KGF and Salaar are not set in the same continuity.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar take place in separate fictional locations.",
        "supported": true,
-       "evidence": "KGF takes place around the Kolar Gold Fields; Salaar takes place in the entirely separate fictional city-state of Khansaar."
+       "evidence": "KGF takes place around the Kolar Gold Fields; Salaar takes place in the entirely separate fictional city-state of Khansaar.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar have no canonical crossover.",
        "supported": true,
-       "evidence": "There is no canonical crossover ... between them."
+       "evidence": "There is no canonical crossover ... between them.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar have no shared timeline.",
        "supported": true,
-       "evidence": "There is no ... shared timeline between them."
+       "evidence": "There is no ... shared timeline between them.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -623,22 +658,26 @@
       {
        "claim": "Rocky from KGF does not appear in Salaar",
        "supported": true,
-       "evidence": "There is no canonical crossover or shared timeline between them."
+       "evidence": "There is no canonical crossover or shared timeline between them.",
+       "chunk_index": 1
       },
       {
        "claim": "The two films are set in separate continuities",
        "supported": true,
-       "evidence": "KGF and Salaar are not set in the same continuity."
+       "evidence": "KGF and Salaar are not set in the same continuity.",
+       "chunk_index": 1
       },
       {
        "claim": "There is no canonical crossover",
        "supported": true,
-       "evidence": "There is no canonical crossover or shared timeline between them."
+       "evidence": "There is no canonical crossover or shared timeline between them.",
+       "chunk_index": 1
       },
       {
        "claim": "Any suggestion of a shared narrative is a fan‑generated idea, not confirmed by the filmmaker",
        "supported": true,
-       "evidence": "Any claim that these films form one connected continuity is a fan/media narrative, not something confirmed by the filmmaker."
+       "evidence": "Any claim that these films form one connected continuity is a fan/media narrative, not something confirmed by the filmmaker.",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -670,17 +709,20 @@
       {
        "claim": "Dragon has no direct narrative connection to KGF.",
        "supported": true,
-       "evidence": "despite fan speculation, Prashanth Neel has explicitly and publicly stated that Dragon has no direct narrative connection to KGF or Salaar — no shared characters, setting, or continuity."
+       "evidence": "despite fan speculation, Prashanth Neel has explicitly and publicly stated that Dragon has no direct narrative connection to KGF or Salaar — no shared characters, setting, or continuity.",
+       "chunk_index": 0
       },
       {
        "claim": "There are no shared characters, setting, or continuity between Dragon and KGF.",
        "supported": true,
-       "evidence": "no shared characters, setting, or continuity."
+       "evidence": "no shared characters, setting, or continuity.",
+       "chunk_index": 0
       },
       {
        "claim": "Dragon is not a sequel to KGF.",
        "supported": true,
-       "evidence": "Dragon has no direct narrative connection to KGF ... no shared characters, setting, or continuity."
+       "evidence": "Dragon has no direct narrative connection to KGF ... no shared characters, setting, or continuity.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -712,7 +754,8 @@
       {
        "claim": "The provided information lists Deva as a character and does not specify the actor portraying Deva.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar)..."
+       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar)...",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -744,12 +787,14 @@
       {
        "claim": "KGF: Chapter 2 is a direct sequel to KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Direct sequel to KGF: Chapter 1, same director."
+       "evidence": "Direct sequel to KGF: Chapter 1, same director.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF: Chapter 2 has the same director as KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Direct sequel to KGF: Chapter 1, same director."
+       "evidence": "Direct sequel to KGF: Chapter 1, same director.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -781,22 +826,26 @@
       {
        "claim": "The knowledge base provides information about the director of KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Director: Prashanth Neel."
+       "evidence": "Director: Prashanth Neel.",
+       "chunk_index": 2
       },
       {
        "claim": "The knowledge base provides information about the language of KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Language: Kannada, released across multiple dubbed versions."
+       "evidence": "Language: Kannada, released across multiple dubbed versions.",
+       "chunk_index": 2
       },
       {
        "claim": "The knowledge base provides information about the setting of KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Setting: the Kolar Gold Fields (KGF), a brutal, privately-controlled gold mining region run through forced labor."
+       "evidence": "Setting: the Kolar Gold Fields (KGF), a brutal, privately-controlled gold mining region run through forced labor.",
+       "chunk_index": 2
       },
       {
        "claim": "The knowledge base does not mention its cinematographer.",
        "supported": true,
-       "evidence": ""
+       "evidence": "",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -4246,6 +4295,38 @@
       }
      ]
     }
+   ],
+   "doc_stats": [
+    {
+     "document": "KGF: Chapter 2 (2022)",
+     "retrieved": 17,
+     "supported_claims": 10,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "Dragon (Prashanth Neel, unreleased as of September 2026)",
+     "retrieved": 16,
+     "supported_claims": 13,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "Universe notes",
+     "retrieved": 11,
+     "supported_claims": 12,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "KGF: Chapter 1 (2018)",
+     "retrieved": 10,
+     "supported_claims": 5,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "Salaar: Part 1 – Ceasefire (2023)",
+     "retrieved": 8,
+     "supported_claims": 4,
+     "unsupported_claims_in_runs": 0
+    }
    ]
   },
   {
@@ -4325,7 +4406,8 @@
       {
        "claim": "Prashanth Neel directed KGF: Chapter 1.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -4356,12 +4438,14 @@
       {
        "claim": "Ramika Sen is the Prime Minister",
        "supported": true,
-       "evidence": "Ramika Sen (Prime Minister and political antagonist)"
+       "evidence": "Ramika Sen (Prime Minister and political antagonist)",
+       "chunk_index": 1
       },
       {
        "claim": "Ramika Sen serves as the political antagonist in KGF: Chapter 2",
        "supported": true,
-       "evidence": "Ramika Sen (Prime Minister and political antagonist)"
+       "evidence": "Ramika Sen (Prime Minister and political antagonist)",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -4393,7 +4477,8 @@
       {
        "claim": "Salaar: Part 1 – Ceasefire (2023) is made in the Telugu language.",
        "supported": true,
-       "evidence": "Language: Telugu."
+       "evidence": "Language: Telugu.",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -4424,12 +4509,14 @@
       {
        "claim": "Shivanna, the Mumbai crime boss, sends Rocky to seize control of KGF.",
        "supported": true,
-       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda..."
+       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda...",
+       "chunk_index": 1
       },
       {
        "claim": "Shivanna sends Rocky to eliminate its overseer Garuda.",
        "supported": true,
-       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda..."
+       "evidence": "A crime boss, Shivanna, sends Rocky to seize control of KGF and eliminate its violent overseer, Garuda...",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -4460,12 +4547,14 @@
       {
        "claim": "That is not in the knowledge base.",
        "supported": false,
-       "evidence": ""
+       "evidence": "",
+       "chunk_index": null
       },
       {
        "claim": "The knowledge base contains information about KGF: Chapter 2 and Salaar: Part 1 – Ceasefire.",
        "supported": true,
-       "evidence": "[Source: KGF: Chapter 2 (2022)]\n[Source: Salaar: Part 1 – Ceasefire (2023)]"
+       "evidence": "[Source: KGF: Chapter 2 (2022)]\n[Source: Salaar: Part 1 – Ceasefire (2023)]",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [
@@ -4500,7 +4589,8 @@
       {
        "claim": "Prashanth Neel directed Salaar.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director ..."
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is Prashanth Neel as director ...",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -4531,17 +4621,20 @@
       {
        "claim": "The provided information identifies Deva as the protagonist of Salaar.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders."
+       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders.",
+       "chunk_index": 0
       },
       {
        "claim": "The provided information describes his role in the plot.",
        "supported": true,
-       "evidence": "Plot: Deva and Vardharaja (\"Varadha\") grow up as inseparable childhood friends until a violent incident tears their families apart ... Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him ... Much of the film traces Deva's transformation from a reluctant outsider into Varadha's fiercely loyal, devastatingly effective protector."
+       "evidence": "Plot: Deva and Vardharaja (\"Varadha\") grow up as inseparable childhood friends until a violent incident tears their families apart ... Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him ... Much of the film traces Deva's transformation from a reluctant outsider into Varadha's fiercely loyal, devastatingly effective protector.",
+       "chunk_index": 1
       },
       {
        "claim": "The context does not state which actor portrays him.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" ... (no actor names are given in the provided excerpts)."
+       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" ... (no actor names are given in the provided excerpts).",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -4572,22 +4665,26 @@
       {
        "claim": "Garuda is killed by Rocky.",
        "supported": true,
-       "evidence": "Rocky ... in a final confrontation kills Garuda, taking control of the gold fields for himself."
+       "evidence": "Rocky ... in a final confrontation kills Garuda, taking control of the gold fields for himself.",
+       "chunk_index": 1
       },
       {
        "claim": "Rocky's story ends with his own death.",
        "supported": true,
-       "evidence": "the film closes with Rocky's own death"
+       "evidence": "the film closes with Rocky's own death",
+       "chunk_index": 2
       },
       {
        "claim": "Rocky's death is orchestrated by political forces.",
        "supported": true,
-       "evidence": "orchestrated by the political forces that could not defeat him by force"
+       "evidence": "orchestrated by the political forces that could not defeat him by force",
+       "chunk_index": 2
       },
       {
        "claim": "Rocky's death occurs after he defeats Adheera.",
        "supported": true,
-       "evidence": "Rocky defeats Adheera in a large-scale final battle, but the film closes with Rocky's own death"
+       "evidence": "Rocky defeats Adheera in a large-scale final battle, but the film closes with Rocky's own death",
+       "chunk_index": 2
       }
      ],
      "unsupported_claims": [],
@@ -4618,22 +4715,26 @@
       {
        "claim": "The warlord Adheera appears in KGF: Chapter 2 (2022).",
        "supported": true,
-       "evidence": "Adheera, a scarred, near-mythic warlord who served the mine's original owners and wants revenge and control back"
+       "evidence": "Adheera, a scarred, near-mythic warlord who served the mine's original owners and wants revenge and control back",
+       "chunk_index": 0
       },
       {
        "claim": "At the film’s conclusion Rocky defeats Adheera in a large‑scale final battle.",
        "supported": true,
-       "evidence": "Rocky defeats Adheera in a large-scale final battle"
+       "evidence": "Rocky defeats Adheera in a large-scale final battle",
+       "chunk_index": 0
       },
       {
        "claim": "The movie ends with Rocky’s own death.",
        "supported": true,
-       "evidence": "the film closes with Rocky's own death"
+       "evidence": "the film closes with Rocky's own death",
+       "chunk_index": 0
       },
       {
        "claim": "Rocky’s death is orchestrated by the political forces that could not defeat him by force.",
        "supported": true,
-       "evidence": "orchestrated by the political forces that could not defeat him by force"
+       "evidence": "orchestrated by the political forces that could not defeat him by force",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -4665,17 +4766,20 @@
       {
        "claim": "Ravi Basrur worked as the composer for KGF.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is ... for KGF and Salaar, composer Ravi Basrur"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is ... for KGF and Salaar, composer Ravi Basrur",
+       "chunk_index": 0
       },
       {
        "claim": "Ravi Basrur worked as the composer for Salaar.",
        "supported": true,
-       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is ... for KGF and Salaar, composer Ravi Basrur"
+       "evidence": "What connects the three projects (KGF, Salaar, Dragon) is ... for KGF and Salaar, composer Ravi Basrur",
+       "chunk_index": 0
       },
       {
        "claim": "Ravi Basrur worked as the composer for Dragon.",
        "supported": true,
-       "evidence": "Ravi Basrur, who scored both KGF films and Salaar, also composes Dragon's music."
+       "evidence": "Ravi Basrur, who scored both KGF films and Salaar, also composes Dragon's music.",
+       "chunk_index": 3
       }
      ],
      "unsupported_claims": [],
@@ -4706,17 +4810,20 @@
       {
        "claim": "Dragon follows Jr NTR’s character Luger, an assassin linked to a colonial-era opium-smuggling syndicate.",
        "supported": true,
-       "evidence": "starring Jr NTR as a character named Luger, an assassin connected to a colonial-era opium-smuggling syndicate"
+       "evidence": "starring Jr NTR as a character named Luger, an assassin connected to a colonial-era opium-smuggling syndicate",
+       "chunk_index": 1
       },
       {
        "claim": "The story is built around the premise that British colonial control of India was largely maintained through dominance of the opium trade.",
        "supported": true,
-       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade"
+       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade",
+       "chunk_index": 1
       },
       {
        "claim": "Luger’s role within that world drives the narrative.",
        "supported": false,
-       "evidence": ""
+       "evidence": "",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [
@@ -4752,27 +4859,32 @@
       {
        "claim": "The provided information about Dragon includes details on the director.",
        "supported": true,
-       "evidence": "directed by Prashanth Neel"
+       "evidence": "directed by Prashanth Neel",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the lead actor.",
        "supported": true,
-       "evidence": "starring Jr NTR as a character named Luger"
+       "evidence": "starring Jr NTR as a character named Luger",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the premise.",
        "supported": true,
-       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade."
+       "evidence": "The story is framed around a premise where British colonial control of India was substantially sustained by dominance of the opium trade.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon includes details on the supporting cast.",
        "supported": true,
-       "evidence": "Supporting cast includes Anil Kapoor, Biju Menon, and Rukmini Vasanth."
+       "evidence": "Supporting cast includes Anil Kapoor, Biju Menon, and Rukmini Vasanth.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information about Dragon does not identify a main villain.",
        "supported": true,
-       "evidence": "The passage lists director, lead actor, premise, and supporting cast but contains no mention of a villain."
+       "evidence": "The passage lists director, lead actor, premise, and supporting cast but contains no mention of a villain.",
+       "chunk_index": null
       }
      ],
      "unsupported_claims": [],
@@ -4802,7 +4914,8 @@
       {
        "claim": "Dragon is currently slated for a June 2027 release.",
        "supported": true,
-       "evidence": "Currently slated for a June 2027 release"
+       "evidence": "Currently slated for a June 2027 release",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -4834,22 +4947,26 @@
       {
        "claim": "KGF and Salaar are not set in the same continuity.",
        "supported": true,
-       "evidence": "KGF and Salaar are not set in the same continuity."
+       "evidence": "KGF and Salaar are not set in the same continuity.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar take place in separate fictional locations.",
        "supported": true,
-       "evidence": "KGF takes place around the Kolar Gold Fields; Salaar takes place in the entirely separate fictional city-state of Khansaar."
+       "evidence": "KGF takes place around the Kolar Gold Fields; Salaar takes place in the entirely separate fictional city-state of Khansaar.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar have no canonical crossover.",
        "supported": true,
-       "evidence": "There is no canonical crossover ... between them."
+       "evidence": "There is no canonical crossover ... between them.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF and Salaar have no shared timeline.",
        "supported": true,
-       "evidence": "There is no ... shared timeline between them."
+       "evidence": "There is no ... shared timeline between them.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -4881,22 +4998,26 @@
       {
        "claim": "Rocky from KGF does not appear in Salaar",
        "supported": true,
-       "evidence": "KGF and Salaar are not set in the same continuity... There is no canonical crossover or shared timeline between them."
+       "evidence": "KGF and Salaar are not set in the same continuity... There is no canonical crossover or shared timeline between them.",
+       "chunk_index": 1
       },
       {
        "claim": "The two films are set in separate continuities",
        "supported": true,
-       "evidence": "KGF and Salaar are not set in the same continuity."
+       "evidence": "KGF and Salaar are not set in the same continuity.",
+       "chunk_index": 1
       },
       {
        "claim": "There is no canonical crossover",
        "supported": true,
-       "evidence": "There is no canonical crossover or shared timeline between them."
+       "evidence": "There is no canonical crossover or shared timeline between them.",
+       "chunk_index": 1
       },
       {
        "claim": "Any suggestion of a shared narrative is a fan‑generated idea, not confirmed by the filmmaker",
        "supported": true,
-       "evidence": "Any claim that these films form one connected continuity is a fan/media narrative, not something confirmed by the filmmaker."
+       "evidence": "Any claim that these films form one connected continuity is a fan/media narrative, not something confirmed by the filmmaker.",
+       "chunk_index": 1
       }
      ],
      "unsupported_claims": [],
@@ -4928,12 +5049,14 @@
       {
        "claim": "Dragon has no direct narrative connection to KGF.",
        "supported": true,
-       "evidence": "Prashanth Neel has explicitly and publicly stated that Dragon has no direct narrative connection to KGF or Salaar — no shared characters, setting, or continuity."
+       "evidence": "Prashanth Neel has explicitly and publicly stated that Dragon has no direct narrative connection to KGF or Salaar — no shared characters, setting, or continuity.",
+       "chunk_index": 0
       },
       {
        "claim": "Dragon is not a sequel to KGF.",
        "supported": true,
-       "evidence": "He has instead described it as the concluding film of his \"mass-action trilogy\" in tone and directorial style, not in shared story-world."
+       "evidence": "He has instead described it as the concluding film of his \"mass-action trilogy\" in tone and directorial style, not in shared story-world.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -4965,17 +5088,20 @@
       {
        "claim": "The provided information lists Deva as a character.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders."
+       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders.",
+       "chunk_index": 0
       },
       {
        "claim": "The provided information describes the plot of Salaar.",
        "supported": true,
-       "evidence": "Plot: Deva and Vardharaja (\"Varadha\") grow up as inseparable childhood friends until a violent incident tears their families apart and separates them. Years later, Varadha is next in line to inherit control of Khansaar, but a brutal succession war breaks out among the city's rival factions as rulership becomes contested. Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him in a moment of crisis. Much of the film traces Deva's transformation from a reluctant outsider into Varadha's fiercely loyal, devastatingly effective protector."
+       "evidence": "Plot: Deva and Vardharaja (\"Varadha\") grow up as inseparable childhood friends until a violent incident tears their families apart and separates them. Years later, Varadha is next in line to inherit control of Khansaar, but a brutal succession war breaks out among the city's rival factions as rulership becomes contested. Deva, who has deliberately kept away from Khansaar and its politics, is pulled back in when Varadha calls on him in a moment of crisis. Much of the film traces Deva's transformation from a reluctant outsider into Varadha's fiercely loyal, devastatingly effective protector.",
+       "chunk_index": 1
       },
       {
        "claim": "The provided information does not specify the actor portraying Deva.",
        "supported": true,
-       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders."
+       "evidence": "Key characters: Deva (protagonist), Vardharaja \"Varadha\" (Deva's childhood friend, heir to Khansaar), several unnamed Khansaar faction leaders.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -5007,12 +5133,14 @@
       {
        "claim": "KGF: Chapter 2 is a direct sequel to KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Direct sequel to KGF: Chapter 1, same director."
+       "evidence": "Direct sequel to KGF: Chapter 1, same director.",
+       "chunk_index": 0
       },
       {
        "claim": "KGF: Chapter 2 has the same director as KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Direct sequel to KGF: Chapter 1, same director."
+       "evidence": "Direct sequel to KGF: Chapter 1, same director.",
+       "chunk_index": 0
       }
      ],
      "unsupported_claims": [],
@@ -5044,7 +5172,8 @@
       {
        "claim": "The provided information only includes the director, language, and setting of KGF: Chapter 1.",
        "supported": true,
-       "evidence": "Director: Prashanth Neel. Language: Kannada, released across multiple dubbed versions. Setting: the Kolar Gold Fields (KGF), a brutal, privately-controlled gold mining region run through forced labor."
+       "evidence": "Director: Prashanth Neel. Language: Kannada, released across multiple dubbed versions. Setting: the Kolar Gold Fields (KGF), a brutal, privately-controlled gold mining region run through forced labor.",
+       "chunk_index": 2
       }
      ],
      "unsupported_claims": [],
@@ -8489,6 +8618,38 @@
        }
       }
      ]
+    }
+   ],
+   "doc_stats": [
+    {
+     "document": "KGF: Chapter 2 (2022)",
+     "retrieved": 17,
+     "supported_claims": 11,
+     "unsupported_claims_in_runs": 1
+    },
+    {
+     "document": "Dragon (Prashanth Neel, unreleased as of September 2026)",
+     "retrieved": 16,
+     "supported_claims": 10,
+     "unsupported_claims_in_runs": 1
+    },
+    {
+     "document": "Universe notes",
+     "retrieved": 11,
+     "supported_claims": 12,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "KGF: Chapter 1 (2018)",
+     "retrieved": 9,
+     "supported_claims": 4,
+     "unsupported_claims_in_runs": 0
+    },
+    {
+     "document": "Salaar: Part 1 – Ceasefire (2023)",
+     "retrieved": 8,
+     "supported_claims": 6,
+     "unsupported_claims_in_runs": 2
     }
    ]
   }

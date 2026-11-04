@@ -78,3 +78,8 @@ def test_missing_key_gives_friendly_error(monkeypatch):
 def test_live_groq_roundtrip():
     res = GroqLLM(Settings()).complete("Reply with the single word: ok", purpose="live")
     assert res.text and res.output_tokens > 0
+
+
+def test_json_generation_400s_are_retryable():
+    assert _is_retryable(Err(400, "json_validate_failed: Failed to generate JSON"))
+    assert _is_retryable(Err(400, "failed_generation"))

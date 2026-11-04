@@ -68,6 +68,7 @@ def evaluate_case(agent: Agent, judge_llm: LLM, case: GoldenCase, settings: Sett
         "passed": not failures,
         "latency_ms": run["latency_ms"] if run else 0.0,
         "cost_usd": run["cost_usd"] if run else 0.0,
+        "llm_calls": run["llm_calls"] if run else None,
         "error": None,
     }
 
@@ -80,6 +81,7 @@ def run_eval(
     pause_s: float = 0.0,
     report_path: Path = REPORT_PATH,
     progress: Any = print,
+    label: str | None = None,
 ) -> dict[str, Any]:
     eval_id = uuid.uuid4().hex[:10]
     results = []
@@ -96,7 +98,15 @@ def run_eval(
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "agent_model": settings.model,
         "judge_model": judge_llm.model,
-        "summary": {**aggregate(results), "judge_model": judge_llm.model},
+        "agent": agent.kind,
+        "label": label,
+        "summary": {
+            **aggregate(results),
+            "judge_model": judge_llm.model,
+            "agent": agent.kind,
+            "agent_model": settings.model,
+            "label": label,
+        },
         "results": results,
     }
     conn = store.connect(settings.db_path)

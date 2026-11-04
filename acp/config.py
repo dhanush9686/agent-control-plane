@@ -48,6 +48,9 @@ class Settings:
     max_attempts: int = 2  # retrieval attempts before we stop looping
     llm_timeout_s: float = 60.0
     llm_max_retries: int = 4  # extra tries on 429/5xx/timeouts, with backoff
+    trace_mode: str = field(default_factory=lambda: os.environ.get("ACP_TRACE_MODE", "sync"))  # sync | batch | kafka
+    kafka_bootstrap: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_BOOTSTRAP", "localhost:19092"))
+    kafka_topic: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_TOPIC", "acp.spans"))
     corpus_path: Path = ROOT / "data" / "corpus.txt"
     index_path: Path = ROOT / "data" / "faiss_index"
     db_path: Path = field(default_factory=lambda: Path(os.environ.get("ACP_DB_PATH", ROOT / "data" / "traces.db")))

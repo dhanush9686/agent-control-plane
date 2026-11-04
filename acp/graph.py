@@ -34,12 +34,29 @@ def make_router(max_attempts: int):
     return route_after_judge
 
 
-def build_graph(llm: LLM, retriever: Retriever, settings: Settings, wrap_node: Callable | None = None):
+AGENT_KINDS = ("graph", "naive")
+
+
+def build_graph(
+    llm: LLM, retriever: Retriever, settings: Settings, wrap_node: Callable | None = None, kind: str = "graph"
+):
+    """kind="graph": retrieve -> judge -> (refine loop) -> synthesize (the full agent).
+
+    kind="naive": retrieve -> synthesize. The classic one-shot RAG baseline: same retriever, same prompt,
+    same model, but NO sufficiency check and NO retry. Comparing the two isolates what the judge loop buys us.
+    """
+    if kind not in AGENT_KINDS:
+        raise ValueError(f"unknown agent kind {kind!r}; choose from {AGENT_KINDS}")
     nodes = make_nodes(llm, retriever, settings)
     g = StateGraph(AgentState)
-    for name, fn in nodes.items():
+    used = nodes if kind == "graph" else {k: nodes[k] for k in ("retrieve", "synthesize")}
+    for name, fn in used.items():
         g.add_node(name, wrap_node(name, fn) if wrap_node else fn)
     g.add_edge(START, "retrieve")
+    if kind == "naive":
+        g.add_edge("retrieve", "synthesize")
+        g.add_edge("synthesize", END)
+        return g.compile()
     g.add_edge("retrieve", "judge")
     g.add_conditional_edges(
         "judge", make_router(settings.max_attempts), {"refine_query": "refine_query", "synthesize": "synthesize"}

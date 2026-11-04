@@ -20,13 +20,20 @@ from acp.tracing import TracedLLM, Tracing, trace_node
 class Agent:
     """A ready-to-ask agent. Pass `tracing=None` to run without recording anything."""
 
-    def __init__(self, llm: LLM, retriever: Retriever, settings: Settings, tracing: Tracing | None = None) -> None:
+    def __init__(
+        self, llm: LLM, retriever: Retriever, settings: Settings, tracing: Tracing | None = None, kind: str = "graph"
+    ) -> None:
+        self.kind = kind
         self.settings = settings
         self.tracing = tracing
         if tracing is not None:
             llm = TracedLLM(llm, tracing)
         self._graph = build_graph(
-            llm, retriever, settings, wrap_node=(lambda n, f: trace_node(n, f, tracing)) if tracing else None
+            llm,
+            retriever,
+            settings,
+            wrap_node=(lambda n, f: trace_node(n, f, tracing)) if tracing else None,
+            kind=kind,
         )
 
     def ask(self, question: str) -> tuple[AgentState, str | None]:

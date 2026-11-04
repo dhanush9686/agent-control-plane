@@ -52,8 +52,8 @@ def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, _BadOutput):
         return True
     status = getattr(exc, "status_code", None)
-    if status == 400 and "tool_use_failed" in str(exc):
-        return True  # seen in practice: the model occasionally answers in prose instead of calling the schema tool
+    if status == 400 and any(m in str(exc) for m in ("tool_use_failed", "json_validate_failed", "failed_generation")):
+        return True  # seen in practice: the model occasionally answers in prose / invalid JSON instead of the schema
     if isinstance(status, int):
         return status == 429 or status >= 500
     name = type(exc).__name__.lower()

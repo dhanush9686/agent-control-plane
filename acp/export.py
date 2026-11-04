@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from acp import store
+from acp.lineage import build_lineage, document_stats, link_claims, to_cypher
 
 
 def _export_one(conn: sqlite3.Connection, ev: sqlite3.Row) -> dict[str, Any]:
@@ -35,13 +36,30 @@ def _export_one(conn: sqlite3.Connection, ev: sqlite3.Row) -> dict[str, Any]:
             {**sp, "attributes": json.loads(sp["attributes"] or "{}")} for sp in store.fetch_spans(conn, rid)
         ]
         runs.append(run)
+    runs_by_id = {r["run_id"]: r for r in runs}
+    for res in results:  # annotate each claim with the chunk that supports it (drives the Lineage tab)
+        run = runs_by_id.get(res.get("run_id"))
+        if run is not None:
+            res["claims"] = link_claims(res.get("claims", []), run["retrieved"])
+    graph = build_lineage(results, runs)
     return {
         "eval_id": ev["eval_id"],
         "created_at": ev["created_at"],
         "summary": json.loads(ev["summary"]),
         "results": results,
         "runs": runs,
+        "doc_stats": document_stats(graph),
+        "_graph": graph,  # stripped before writing JSON; used for the Cypher export
     }
+
+
+def lineage_cypher(export: dict[str, Any]) -> str:
+    """Cypher for the latest evaluation in an export (see docker-compose.yml for a local Neo4j)."""
+    return to_cypher(export["evals"][0]["_graph"])
+
+
+def strip_private(export: dict[str, Any]) -> dict[str, Any]:
+    return {**export, "evals": [{k: v for k, v in e.items() if not k.startswith("_")} for e in export["evals"]]}
 
 
 def build_export(
