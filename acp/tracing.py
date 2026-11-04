@@ -68,6 +68,8 @@ def span_to_record(s: ReadableSpan) -> dict[str, Any] | None:
         "cost_usd": a.get("acp.cost_usd"),
         "retries": a.get("acp.retries"),
         "question": a.get("acp.question", ""),
+        "user_id": a.get("acp.user_id"),  # who asked / which document (multi-user mode); None for the CLI
+        "doc_id": a.get("acp.doc_id"),
         "error": a.get("acp.error"),
         "attrs": {k.removeprefix("acp.attr."): v for k, v in a.items() if k.startswith("acp.attr.")},
     }
@@ -81,7 +83,8 @@ def write_record(conn: sqlite3.Connection, r: dict[str, Any]) -> None:
     latency_ms = (r["end_ns"] - r["start_ns"]) / 1e6
     extra = r["attrs"]
     conn.execute(
-        "INSERT OR REPLACE INTO spans VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO spans (span_id, run_id, parent_id, name, kind, start_ms, latency_ms, status, "
+        "input_tokens, output_tokens, cost_usd, retries, attributes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             r["span_id"],
             r["run_id"],
@@ -106,7 +109,9 @@ def write_record(conn: sqlite3.Connection, r: dict[str, Any]) -> None:
             (r["run_id"],),
         ).fetchone()
         conn.execute(
-            "INSERT OR REPLACE INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO runs (run_id, question, started_at, latency_ms, status, error, answer, attempts, "
+            "sufficient, input_tokens, output_tokens, cost_usd, llm_calls, retries, retrieved_json, user_id, doc_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 r["run_id"],
                 r["question"],
@@ -123,6 +128,8 @@ def write_record(conn: sqlite3.Connection, r: dict[str, Any]) -> None:
                 agg[3],
                 agg[4],
                 extra.get("retrieved_json"),
+                r.get("user_id"),
+                r.get("doc_id"),
             ),
         )
 

@@ -36,6 +36,18 @@ def load_prices() -> dict[str, tuple[float, float]]:
     return prices
 
 
+def _env_int(name: str, default: int) -> int:
+    return int(os.environ.get(name, default))
+
+
+def _env_float(name: str, default: float) -> float:
+    return float(os.environ.get(name, default))
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    return os.environ.get(name, "1" if default else "0").strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     model: str = "openai/gpt-oss-120b"
@@ -64,6 +76,24 @@ class Settings:
     )
     db_path: Path = field(default_factory=lambda: Path(os.environ.get("ACP_DB_PATH", ROOT / "data" / "traces.db")))
     prices: dict[str, tuple[float, float]] = field(default_factory=load_prices)
+
+    # --- uploaded-document mode (server). Every number is an env var so limits can change without code. ---
+    domain_name: str = field(default_factory=lambda: os.environ.get("ACP_DOMAIN_NAME", "film-knowledge corpus"))
+    kb_root: Path = field(default_factory=lambda: Path(os.environ.get("ACP_KB_ROOT", ROOT / "data" / "kb")))
+    max_upload_mb: int = field(default_factory=lambda: _env_int("ACP_MAX_UPLOAD_MB", 30))
+    max_pages: int = field(default_factory=lambda: _env_int("ACP_MAX_PAGES", 600))
+    max_chunks: int = field(default_factory=lambda: _env_int("ACP_MAX_CHUNKS", 3000))
+    chunk_chars: int = field(default_factory=lambda: _env_int("ACP_CHUNK_CHARS", 900))
+    chunk_overlap: int = field(default_factory=lambda: _env_int("ACP_CHUNK_OVERLAP", 150))
+    parse_timeout_s: int = field(default_factory=lambda: _env_int("ACP_PARSE_TIMEOUT_S", 180))
+    rate_per_min: int = field(default_factory=lambda: _env_int("ACP_RATE_PER_MIN", 5))  # asks per user per minute
+    daily_asks: int = field(default_factory=lambda: _env_int("ACP_DAILY_ASKS", 25))  # per user per UTC day
+    daily_uploads: int = field(default_factory=lambda: _env_int("ACP_DAILY_UPLOADS", 3))
+    model_tpm: int = field(default_factory=lambda: _env_int("ACP_MODEL_TPM", 6500))  # headroom under Groq's 8,000
+    model_daily_tokens: int = field(default_factory=lambda: _env_int("ACP_MODEL_DAILY_TOKENS", 180_000))
+    context_token_budget: int = field(default_factory=lambda: _env_int("ACP_CONTEXT_TOKENS", 3500))
+    rerank: bool = field(default_factory=lambda: _env_bool("ACP_RERANK", False))
+    store_chunk_text: bool = field(default_factory=lambda: _env_bool("ACP_STORE_CHUNK_TEXT", False))  # privacy default
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         """Estimated dollars for one LLM call, from the price table."""

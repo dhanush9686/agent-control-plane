@@ -69,16 +69,109 @@ CREATE INDEX IF NOT EXISTS idx_eval_results_run ON eval_results(run_id);
 """
 
 
+# --- schema versions -------------------------------------------------------------------------------
+# Analogy: numbered renovation permits. The database remembers which renovation it is on
+# (`PRAGMA user_version`); on open we apply only the permits it has not had yet, each in one transaction.
+# Version 1 = the original tables above. Version 2 = multi-user document support.
+MIGRATIONS: dict[int, list[str]] = {
+    2: [
+        "ALTER TABLE runs ADD COLUMN user_id TEXT",
+        "ALTER TABLE runs ADD COLUMN doc_id TEXT",
+        "CREATE INDEX IF NOT EXISTS idx_runs_user ON runs(user_id, started_at)",
+        """CREATE TABLE IF NOT EXISTS users (
+            id         TEXT PRIMARY KEY,
+            name       TEXT NOT NULL,
+            key_hash   TEXT NOT NULL UNIQUE,   -- sha256 of the API key; the key itself is never stored
+            key_prefix TEXT NOT NULL,          -- first characters, to recognise a key in logs/admin
+            created_at TEXT NOT NULL,
+            disabled   INTEGER NOT NULL DEFAULT 0,
+            quota_json TEXT                    -- optional per-user overrides of the default quotas
+        )""",
+        """CREATE TABLE IF NOT EXISTS docs (
+            id         TEXT PRIMARY KEY,
+            owner_id   TEXT NOT NULL,
+            sha256     TEXT NOT NULL,
+            filename   TEXT NOT NULL,          -- display only; never used as a path
+            pages      INTEGER,
+            chunks     INTEGER,
+            status     TEXT NOT NULL,          -- queued | parsing | embedding | ready | failed
+            error      TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE (owner_id, sha256)          -- uploading the same file twice reuses the first
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_docs_owner ON docs(owner_id)",
+        """CREATE TABLE IF NOT EXISTS jobs (
+            id          TEXT PRIMARY KEY,
+            doc_id      TEXT NOT NULL,
+            state       TEXT NOT NULL,         -- queued | parsing | chunking | embedding | indexing | ready | failed
+            progress    INTEGER NOT NULL DEFAULT 0,
+            total       INTEGER NOT NULL DEFAULT 0,
+            message     TEXT,
+            started_at  TEXT,
+            finished_at TEXT
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_jobs_doc ON jobs(doc_id)",
+        """CREATE TABLE IF NOT EXISTS chunks (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_id     TEXT NOT NULL,
+            owner_id   TEXT NOT NULL,
+            idx        INTEGER NOT NULL,       -- position in the document; equals the row in its FAISS index
+            page       INTEGER NOT NULL,       -- 1-based PDF page index
+            page_label TEXT,
+            section    TEXT,
+            kind       TEXT NOT NULL DEFAULT 'text',   -- text | summary
+            text       TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id, idx)",
+        # Keyword (BM25) search. rowid is the chunks.id, so a hit maps straight back to its chunk.
+        "CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, doc_id UNINDEXED, owner_id UNINDEXED)",
+        """CREATE TABLE IF NOT EXISTS usage (
+            user_id TEXT NOT NULL,
+            day     TEXT NOT NULL,             -- UTC date
+            asks    INTEGER NOT NULL DEFAULT 0,
+            tokens  INTEGER NOT NULL DEFAULT 0,
+            uploads INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, day)
+        )""",
+    ],
+}
+LATEST = max(MIGRATIONS)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring the database up to LATEST. Safe to call from several processes at once."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version >= LATEST:
+        return  # hot path: one cheap read, no locks
+    conn.execute("BEGIN IMMEDIATE")  # take the write lock; the loser of a race waits, then re-reads the version
+    try:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if version == 0:
+            fresh = not conn.execute("SELECT 1 FROM sqlite_master WHERE name='runs'").fetchone()
+            if fresh:
+                for stmt in SCHEMA.split(";"):
+                    if stmt.strip():
+                        conn.execute(stmt)
+            version = 1  # a database that already had `runs` is a version-1 database
+        for target in sorted(v for v in MIGRATIONS if v > version):
+            for stmt in MIGRATIONS[target]:
+                conn.execute(stmt)
+            version = target
+        conn.execute(f"PRAGMA user_version = {version}")
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+
+
 def connect(path: Path | str) -> sqlite3.Connection:
-    """Open (and create if needed) the trace DB with the schema applied."""
+    """Open (and migrate if needed) the database."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout=30000")  # wait for other writers instead of failing (parallel eval workers)
+    conn.execute("PRAGMA busy_timeout=30000")  # wait for other writers instead of failing (parallel workers)
     conn.execute("PRAGMA journal_mode=WAL")  # readers never block the writer
-    has_schema = conn.execute("SELECT 1 FROM sqlite_master WHERE name='runs'").fetchone()
-    if not has_schema:  # skip DDL on the hot path: it needs a write lock every time
-        conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
 
 
