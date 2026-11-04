@@ -42,15 +42,18 @@ class FakeLLM:
         self.sufficient = list(sufficient if sufficient is not None else [True])
         self.answer = answer
         self.calls: list[str] = []
+        self.prompts: list[tuple[str, str]] = []  # (purpose, prompt) for tests that inspect prompts
         self.grounding_report = None
 
     def complete(self, prompt: str, *, purpose: str) -> LLMResult:
         self.calls.append(purpose)
+        self.prompts.append((purpose, prompt))
         text = "refined query" if purpose == "refine_query" else self.answer
         return LLMResult(text=text, input_tokens=100, output_tokens=20, latency_ms=5.0)
 
     def structured(self, schema, prompt: str, *, purpose: str) -> LLMResult:
         self.calls.append(purpose)
+        self.prompts.append((purpose, prompt))
         if purpose == "judge":
             v = self.sufficient.pop(0) if len(self.sufficient) > 1 else self.sufficient[0]
             parsed = schema(sufficient=v, reasoning="because")

@@ -78,7 +78,10 @@ class Settings:
     prices: dict[str, tuple[float, float]] = field(default_factory=load_prices)
 
     # --- uploaded-document mode (server). Every number is an env var so limits can change without code. ---
-    domain_name: str = field(default_factory=lambda: os.environ.get("ACP_DOMAIN_NAME", "film-knowledge corpus"))
+    domain_name: str = field(default_factory=lambda: os.environ.get("ACP_DOMAIN_NAME", "a small film-knowledge corpus"))
+    citation_example: str = field(
+        default_factory=lambda: os.environ.get("ACP_CITATION_EXAMPLE", "[KGF: Chapter 1 (2018)]")
+    )  # shown to the model as the citation style; the server uses "[report.pdf p.37]"
     kb_root: Path = field(default_factory=lambda: Path(os.environ.get("ACP_KB_ROOT", ROOT / "data" / "kb")))
     max_upload_mb: int = field(default_factory=lambda: _env_int("ACP_MAX_UPLOAD_MB", 30))
     max_pages: int = field(default_factory=lambda: _env_int("ACP_MAX_PAGES", 600))
