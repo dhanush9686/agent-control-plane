@@ -3,8 +3,12 @@
 Analogy: a filing cabinet with one locked drawer per document. A drawer holds the vector index (FAISS file) and
 the chunk text/page numbers (SQLite rows, also keyword-indexed). Deleting a document empties its drawer completely.
 
-Layout:  <kb_root>/<owner_id>/<doc_id>/{source.pdf, index.faiss}   (+ rows in the SQLite tables)
-FAISS files are written with faiss.write_index (plain vectors), NOT pickle, because they derive from user uploads.
+Layout:  <kb_root>/<owner_id>/<doc_id>/{source.pdf, vectors.npy}   (+ rows in the SQLite tables)
+
+Why numpy and not FAISS: a 500-page document is ~2,500 vectors; exact search over them is a single matrix
+multiplication (well under a millisecond), so a vector database buys nothing here. Dropping FAISS also removes a
+real crash: on macOS, FAISS and PyTorch each bundle their own OpenMP runtime and abort when both run in one
+process. Vectors are saved as a plain .npy file and loaded with allow_pickle=False (never unpickle user-derived data).
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from pathlib import Path
 
-import faiss
+import numpy as np
 
 from acp.embeddings import Embedder
 from acp.errors import ACPError
@@ -43,7 +47,7 @@ class KnowledgeBase:
     def __init__(self, root: Path, embedder: Embedder, cache_size: int = 3) -> None:
         self.root = Path(root)
         self.embedder = embedder
-        self._cache: OrderedDict[tuple[str, float], faiss.Index] = OrderedDict()
+        self._cache: OrderedDict[tuple[str, float], np.ndarray] = OrderedDict()
         self._cache_size = cache_size
 
     # ------------------------------------------------------------------ paths
@@ -54,7 +58,7 @@ class KnowledgeBase:
         return self.doc_dir(owner_id, doc_id) / "source.pdf"
 
     def index_path(self, owner_id: str, doc_id: str) -> Path:
-        return self.doc_dir(owner_id, doc_id) / "index.faiss"
+        return self.doc_dir(owner_id, doc_id) / "vectors.npy"
 
     # ------------------------------------------------------------------ write
     def add_document(
@@ -70,17 +74,18 @@ class KnowledgeBase:
         The vector file is written first and the rows second, in one transaction, so a crash leaves either nothing
         searchable or everything searchable, never half.
         """
-        index = faiss.IndexFlatIP(self.embedder.dim)
         total = len(chunks)
+        parts = []
         for start in range(0, total, EMBED_BATCH):
             batch = chunks[start : start + EMBED_BATCH]
-            index.add(self.embedder.embed([c.text for c in batch]))
+            parts.append(self.embedder.embed([c.text for c in batch]))
             if progress:
                 progress(min(start + EMBED_BATCH, total), total)
+        vectors = np.concatenate(parts).astype("float32") if parts else np.zeros((0, self.embedder.dim), "float32")
         d = self.doc_dir(owner_id, doc_id)
         d.mkdir(parents=True, exist_ok=True)
-        tmp = d / "index.faiss.tmp"
-        faiss.write_index(index, str(tmp))
+        tmp = d / "vectors.tmp.npy"
+        np.save(tmp, vectors, allow_pickle=False)
         tmp.replace(self.index_path(owner_id, doc_id))  # atomic rename: never a half-written index
         with conn:
             for c in chunks:
@@ -106,7 +111,7 @@ class KnowledgeBase:
         self._cache = OrderedDict((k, v) for k, v in self._cache.items() if safe_id(doc_id) not in k[0])
 
     # ------------------------------------------------------------------ read
-    def load_index(self, owner_id: str, doc_id: str) -> faiss.Index:
+    def load_index(self, owner_id: str, doc_id: str) -> np.ndarray:
         path = self.index_path(owner_id, doc_id)
         if not path.is_file():
             raise ACPError("This document has no search index (it may still be processing, or failed).")
@@ -114,7 +119,7 @@ class KnowledgeBase:
         if key in self._cache:
             self._cache.move_to_end(key)
             return self._cache[key]
-        index = faiss.read_index(str(path))
+        index = np.load(path, allow_pickle=False)
         self._cache[key] = index
         while len(self._cache) > self._cache_size:
             self._cache.popitem(last=False)
@@ -122,8 +127,9 @@ class KnowledgeBase:
 
     def dense_search(self, owner_id: str, doc_id: str, query: str, n: int) -> list[int]:
         """Chunk positions (idx) of the n nearest chunks, best first."""
-        index = self.load_index(owner_id, doc_id)
-        if index.ntotal == 0:
+        vectors = self.load_index(owner_id, doc_id)
+        if len(vectors) == 0:
             return []
-        _, ids = index.search(self.embedder.embed([query]), min(n, index.ntotal))
-        return [int(i) for i in ids[0] if i >= 0]
+        scores = vectors @ self.embedder.embed([query])[0]  # cosine similarity (vectors are normalized)
+        # Full stable sort: ~2,500 scores sort in microseconds, and ties resolve by position (deterministic results).
+        return [int(i) for i in np.argsort(-scores, kind="stable")[:n]]

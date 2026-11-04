@@ -1,4 +1,3 @@
-import faiss
 import numpy as np
 import pytest
 from langchain_core.documents import Document
@@ -134,7 +133,7 @@ def test_two_documents_never_mix(env, tmp_path):
 def test_delete_removes_files_rows_and_keyword_hits(env):
     kb, db = env
     d = kb.doc_dir(OWNER_A, DOC_A)
-    assert (d / "index.faiss").is_file()
+    assert (d / "vectors.npy").is_file()
     conn = store.connect(db)
     kb.delete_document(conn, OWNER_A, DOC_A)
     assert not d.exists()
@@ -151,11 +150,13 @@ def test_progress_is_monotonic_and_reaches_total(tmp_path):
     assert [d for d, _ in seen] == sorted(d for d, _ in seen) and seen[-1] == (150, 150) and len(seen) == 3
 
 
-def test_index_is_a_plain_faiss_file_that_survives_restart(env, tmp_path):
+def test_index_is_a_plain_npy_file_that_survives_restart(env, tmp_path):
     kb, db = env
     path = kb.index_path(OWNER_A, DOC_A)
-    assert faiss.read_index(str(path)).ntotal == 20  # readable with no pickle involved
-    assert not list(path.parent.glob("*.tmp"))
+    vectors = np.load(path, allow_pickle=False)  # readable with no pickle involved
+    assert vectors.shape == (20, 256) and vectors.dtype == np.float32
+    assert np.allclose(np.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
+    assert not list(path.parent.glob("*.tmp*"))
     fresh = KnowledgeBase(kb.root, HashEmbedder(256))  # a new process loading the same files
     assert DocRetriever(fresh, lambda: store.connect(db), OWNER_A, DOC_A, "c.pdf").search("indemnification", 2)
 
@@ -187,3 +188,31 @@ def test_reranker_gets_the_shortlist_and_decides_the_final_order(env):
     reranked = _retriever(kb, db, reranker=_ReverseReranker()).search("indemnification cap zyxwv42", 3)
     assert isinstance(reranked[0], Document) and len(reranked) == 3
     assert reranked[0].metadata["idx"] != plain[0].metadata["idx"]
+
+
+def test_dense_search_matches_brute_force_ranking(tmp_path):
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(256))
+    conn = store.connect(tmp_path / "t.db")
+    chunks = _chunks(40, needle_page=99)
+    kb.add_document(conn, OWNER_A, DOC_A, chunks)
+    q = "topic17 filler words"
+    got = kb.dense_search(OWNER_A, DOC_A, q, 5)
+    vecs = HashEmbedder(256).embed([c.text for c in chunks])
+    expected = list(np.argsort(-(vecs @ HashEmbedder(256).embed([q])[0]), kind="stable")[:5])
+    assert got == [int(i) for i in expected] and got[0] == 17
+
+
+def test_knowledge_base_never_imports_faiss_or_torch():
+    """Regression: FAISS + PyTorch in one process aborts on macOS (two OpenMP runtimes). The KB must avoid both."""
+    import subprocess
+    import sys
+
+    code = "import sys, acp.kb, acp.hybrid; print('faiss' in sys.modules, 'torch' in sys.modules)"
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+    assert r.stdout.strip() == "False False", r.stdout + r.stderr
+
+
+def test_dense_search_on_an_empty_document_returns_nothing(tmp_path):
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(16))
+    kb.add_document(store.connect(tmp_path / "t.db"), OWNER_A, DOC_A, [])
+    assert kb.dense_search(OWNER_A, DOC_A, "anything", 5) == []
