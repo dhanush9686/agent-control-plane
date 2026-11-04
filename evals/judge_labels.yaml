@@ -1,0 +1,43 @@
+# Labelled examples for measuring the GRADER itself (not the agent).
+# label: unsupported=true means a correct grader must flag a hallucination in `answer`.
+# labelled_by: "author" = constructed by the project author from the corpus (adversarial on purpose),
+# NOT independent human annotation. Add independent labels in evals/judge_labels_human.yaml (same format).
+# `sources` are corpus entries (prefix match) used as the retrieved context.
+- {id: j01, kind: supported, sources: ["Inception"], unsupported: false, answer: "Christopher Nolan directed Inception, and Hans Zimmer composed its music."}
+- {id: j02, kind: supported, sources: ["Inception"], unsupported: false, answer: "Leonardo DiCaprio plays Dom Cobb."}
+- {id: j03, kind: supported_paraphrase, sources: ["Inception"], unsupported: false, answer: "Saito wants Cobb to plant an idea inside Robert Fischer's mind, who stands to inherit a rival energy company."}
+- {id: j04, kind: supported, sources: ["Inception"], unsupported: false, answer: "Inception won four Academy Awards, including Best Visual Effects."}
+- {id: j05, kind: number_change, sources: ["Inception"], unsupported: true, answer: "Inception won five Academy Awards."}
+- {id: j06, kind: entity_swap, sources: ["Inception"], unsupported: true, answer: "Cobb is played by Brad Pitt."}
+- {id: j07, kind: contradiction, sources: ["Inception"], unsupported: true, answer: "The film ends with the top clearly falling over, proving it was reality."}
+- {id: j08, kind: embellishment, sources: ["Inception"], unsupported: true, answer: "Inception was filmed mostly in Iceland and Tokyo."}
+- {id: j09, kind: supported, sources: ["Interstellar"], unsupported: false, answer: "Cooper joins a NASA mission through a wormhole near Saturn."}
+- {id: j10, kind: place_change, sources: ["Interstellar"], unsupported: true, answer: "The wormhole is located near Jupiter."}
+- {id: j11, kind: supported, sources: ["Interstellar"], unsupported: false, answer: "Interstellar won the Academy Award for Best Visual Effects."}
+- {id: j12, kind: outside_knowledge_true, sources: ["Interstellar"], unsupported: true, answer: "Interstellar's cinematographer is Hoyte van Hoytema."}
+- {id: j13, kind: supported, sources: ["Interstellar"], unsupported: false, answer: "The scientist Mann betrays the crew."}
+- {id: j14, kind: entity_swap, sources: ["Interstellar"], unsupported: true, answer: "Anne Hathaway plays the adult Murph."}
+- {id: j15, kind: supported, sources: ["The Dark Knight"], unsupported: false, answer: "Heath Ledger posthumously won the Academy Award for Best Supporting Actor for playing the Joker."}
+- {id: j16, kind: category_change, sources: ["The Dark Knight"], unsupported: true, answer: "Heath Ledger won the Oscar for Best Actor for The Dark Knight."}
+- {id: j17, kind: supported, sources: ["The Dark Knight"], unsupported: false, answer: "Harvey Dent is scarred and becomes Two-Face."}
+- {id: j18, kind: ordinal_change, sources: ["The Dark Knight"], unsupported: true, answer: "The Dark Knight is the third film in Nolan's Batman trilogy."}
+- {id: j19, kind: supported, sources: ["Oppenheimer"], unsupported: false, answer: "Oppenheimer won seven Academy Awards at the 2024 ceremony, including Best Picture."}
+- {id: j20, kind: supported, sources: ["Oppenheimer"], unsupported: false, answer: "The film is based on the book American Prometheus by Kai Bird and Martin J. Sherwin."}
+- {id: j21, kind: outside_knowledge_true, sources: ["Oppenheimer"], unsupported: true, answer: "Emily Blunt plays Kitty Oppenheimer."}
+- {id: j22, kind: entity_swap, sources: ["Oppenheimer"], unsupported: true, answer: "Hans Zimmer composed the music for Oppenheimer."}
+- {id: j23, kind: supported, sources: ["Memento"], unsupported: false, answer: "Leonard Shelby has anterograde amnesia and cannot form new memories."}
+- {id: j24, kind: partial_support, sources: ["Memento"], unsupported: true, answer: "Memento was directed by Christopher Nolan and was the first film to win Best Picture."}
+- {id: j25, kind: supported, sources: ["Memento"], unsupported: false, answer: "The color sequences are shown in reverse chronological order."}
+- {id: j26, kind: supported, sources: ["Dunkirk"], unsupported: false, answer: "Dunkirk interweaves three timelines lasting one week, one day and one hour."}
+- {id: j27, kind: date_change, sources: ["Dunkirk"], unsupported: true, answer: "Dunkirk depicts the evacuation of 1941."}
+- {id: j28, kind: supported, sources: ["Tenet"], unsupported: false, answer: "John David Washington plays the Protagonist in Tenet."}
+- {id: j29, kind: outside_knowledge_true, sources: ["Tenet"], unsupported: true, answer: "Kenneth Branagh plays the villain Sator in Tenet."}
+- {id: j30, kind: supported, sources: ["KGF: Chapter 1"], unsupported: false, answer: "Rocky kills Garuda and takes control of the gold fields."}
+- {id: j31, kind: contradiction, sources: ["KGF: Chapter 2"], unsupported: true, answer: "Rocky survives the final battle and retires peacefully."}
+- {id: j32, kind: supported, sources: ["Dragon"], unsupported: false, answer: "Dragon stars Jr NTR as Luger, an assassin tied to an opium-smuggling syndicate."}
+- {id: j33, kind: supported, sources: ["Dragon"], unsupported: false, answer: "Dragon is slated for release in June 2027."}
+- {id: j34, kind: contradiction, sources: ["Dragon"], unsupported: true, answer: "Dragon has been released and was a box-office hit."}
+- {id: j35, kind: refusal, sources: ["Tenet"], unsupported: false, answer: "That is not in the knowledge base."}
+- {id: j36, kind: refusal_plus_support, sources: ["Tenet"], unsupported: false, answer: "That is not in the knowledge base. The knowledge base only lists John David Washington as the lead of Tenet."}
+- {id: j37, kind: contradiction, sources: ["Universe notes"], unsupported: true, answer: "KGF and Salaar share one continuous universe."}
+- {id: j38, kind: supported, sources: ["Universe notes"], unsupported: false, answer: "KGF and Salaar are not set in the same continuity."}

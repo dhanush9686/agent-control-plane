@@ -18,8 +18,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # $ per 1 million tokens: (input, output). These are ESTIMATES for cost
 # tracking, not a billing record -- check https://groq.com/pricing and override
 # with the ACP_PRICES_JSON env var (path to a JSON file of the same shape).
+# Groq's free tier means real spend is $0; the cost column is "what this would cost at paid rates".
 DEFAULT_PRICES: dict[str, tuple[float, float]] = {
     "openai/gpt-oss-120b": (0.15, 0.75),
+    "openai/gpt-oss-20b": (0.075, 0.30),
+    "qwen/qwen3.8-27b": (0.29, 0.59),
 }
 
 
@@ -37,6 +40,9 @@ def load_prices() -> dict[str, tuple[float, float]]:
 class Settings:
     model: str = "openai/gpt-oss-120b"
     temperature: float = 0.0
+    # Grader for evals: a DIFFERENT model family than the answerer to reduce self-preference bias.
+    # Override with ACP_JUDGE_MODEL, or pass --judge-model same to grade with the answering model.
+    judge_model: str = field(default_factory=lambda: os.environ.get("ACP_JUDGE_MODEL", "qwen/qwen3.8-27b"))
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     top_k: int = 3  # chunks fetched per search
     max_attempts: int = 2  # retrieval attempts before we stop looping

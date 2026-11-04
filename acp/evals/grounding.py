@@ -23,6 +23,10 @@ from acp.llm import LLM
 from acp.nodes import format_docs
 
 
+class ClaimList(BaseModel):
+    claims: list[str] = Field(description="Atomic factual claims made by the answer; empty if none")
+
+
 class ClaimVerdict(BaseModel):
     claim: str = Field(description="One atomic factual statement taken from the answer")
     supported: bool = Field(description="True only if the retrieved context explicitly supports this claim")
@@ -30,7 +34,7 @@ class ClaimVerdict(BaseModel):
 
 
 class GroundingReport(BaseModel):
-    claims: list[ClaimVerdict] = Field(description="All factual claims in the answer; empty if there are none")
+    claims: list[ClaimVerdict] = Field(description="One verdict per claim given")
 
 
 @dataclass
@@ -46,31 +50,47 @@ class GroundingResult:
         return bool(self.unsupported)
 
 
-def evaluate_grounding(llm: LLM, question: str, answer: str, docs: list[Document]) -> GroundingResult:
-    prompt = f"""You are a strict fact-checker. Check an ANSWER against the retrieved CONTEXT only.
-
-Steps:
-1. Split the ANSWER into atomic factual claims. Do NOT list: citations like [Source], statements that
-   something is "not in the knowledge base", or restatements of the question.
-2. For each claim decide if the CONTEXT explicitly supports it. Use no outside knowledge. A claim that
-   is plausible or true in the real world but absent from the CONTEXT is NOT supported.
-   A claim that contradicts the CONTEXT is NOT supported.
-3. For supported claims, copy a short verbatim quote from the CONTEXT as evidence.
+def extract_claims(llm: LLM, question: str, answer: str) -> tuple[list[str], int, int]:
+    """Step 1: split the answer into atomic claims. Sees NO context, so it cannot be swayed by it."""
+    prompt = f"""Split the ANSWER into atomic factual claims, one per item, each understandable on its own.
+Do NOT include: citations like [Source], statements that something is "not in the knowledge base",
+or restatements of the question. If the answer makes no factual claim, return an empty list.
 
 QUESTION: {question}
 
 ANSWER:
-{answer}
+{answer}"""
+    res = llm.structured(ClaimList, prompt, purpose="grounding_extract")
+    claims = [c for c in res.parsed.claims if c.strip() and not is_refusal(c)]
+    return claims, res.input_tokens, res.output_tokens
+
+
+def verify_claims(llm: LLM, claims: list[str], docs: list[Document]) -> tuple[list[ClaimVerdict], int, int]:
+    """Step 2: check each claim against the retrieved context only."""
+    numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(claims))
+    prompt = f"""You are a strict fact-checker. For EACH numbered CLAIM decide if the CONTEXT explicitly supports it.
+Use no outside knowledge: a claim that is plausible or true in the real world but absent from the CONTEXT
+is NOT supported. A claim that contradicts the CONTEXT, changes a name, number or date, or adds detail the
+CONTEXT does not state is NOT supported. For supported claims copy a short verbatim quote as evidence.
+Return one verdict per claim, in order.
+
+CLAIMS:
+{numbered}
 
 CONTEXT:
 {format_docs(docs)}"""
-    res = llm.structured(GroundingReport, prompt, purpose="grounding_eval")
-    report: GroundingReport = res.parsed
-    # The judge is told to skip refusal sentences but sometimes lists them anyway (seen in a real run:
-    # "That is not in the knowledge base." flagged as unsupported). Admitting absence is not a factual
-    # claim, so drop those deterministically instead of trusting the prompt.
-    claims = [c for c in report.claims if not is_refusal(c.claim)]
-    unsupported = [c for c in claims if not c.supported]
-    total = len(claims)
-    score = 1.0 if total == 0 else (total - len(unsupported)) / total
-    return GroundingResult(claims, unsupported, score, res.input_tokens, res.output_tokens)
+    res = llm.structured(GroundingReport, prompt, purpose="grounding_verify")
+    return list(res.parsed.claims), res.input_tokens, res.output_tokens
+
+
+def evaluate_grounding(llm: LLM, question: str, answer: str, docs: list[Document]) -> GroundingResult:
+    """Two-step grounding check: extract claims, then verify them. Refusal sentences are never claims."""
+    claims, t_in, t_out = extract_claims(llm, question, answer)
+    verdicts: list[ClaimVerdict] = []
+    if claims:  # nothing to verify -> skip the second call (saves free-tier quota)
+        verdicts, v_in, v_out = verify_claims(llm, claims, docs)
+        t_in, t_out = t_in + v_in, t_out + v_out
+        verdicts = [v for v in verdicts if not is_refusal(v.claim)]
+    unsupported = [v for v in verdicts if not v.supported]
+    score = 1.0 if not verdicts else (len(verdicts) - len(unsupported)) / len(verdicts)
+    return GroundingResult(verdicts, unsupported, score, t_in, t_out)

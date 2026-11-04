@@ -54,7 +54,10 @@ class FakeLLM:
         if purpose == "judge":
             v = self.sufficient.pop(0) if len(self.sufficient) > 1 else self.sufficient[0]
             parsed = schema(sufficient=v, reasoning="because")
-        else:
+        elif purpose == "grounding_extract":
+            names = [c.claim for c in self.grounding_report.claims] if self.grounding_report else []
+            parsed = schema(claims=names)
+        else:  # grounding_verify
             parsed = self.grounding_report or schema(claims=[])
         return LLMResult(parsed=parsed, input_tokens=200, output_tokens=40, latency_ms=7.0)
 

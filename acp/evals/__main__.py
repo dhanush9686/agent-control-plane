@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--categories", nargs="*", help="Only these categories")
     p.add_argument("--limit", type=int, help="Only the first N cases (handy on free-tier rate limits)")
     p.add_argument("--pause", type=float, default=0.0, help="Seconds to sleep between questions")
-    p.add_argument("--judge-model", help="Use a different model for grading than for answering")
+    p.add_argument("--judge-model", help="Grader model (default: settings.judge_model; 'same' = the answering model)")
     args = p.parse_args(argv)
 
     cases = load_golden()
@@ -38,7 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = get_settings()
         agent = Agent(get_llm(settings), FaissRetriever(settings), settings, Tracing(settings))
-        judge = get_llm(judge_settings(settings, args.judge_model))
+        judge_name = args.judge_model or settings.judge_model
+        judge = get_llm(judge_settings(settings, None if judge_name == "same" else judge_name))
         report = run_eval(agent, judge, cases, settings, pause_s=args.pause)
     except ACPError as e:
         print(f"error: {e}", file=sys.stderr)

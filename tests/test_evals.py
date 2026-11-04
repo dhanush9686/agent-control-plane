@@ -16,7 +16,7 @@ from tests.conftest import CORPUS, FakeLLM, FakeRetriever
 
 def test_golden_set_is_valid_and_covers_all_categories():
     cases = load_golden()
-    assert 15 <= len(cases) <= 25
+    assert 50 <= len(cases) <= 70
     assert {c.category for c in cases} == {
         "answerable",
         "multi_hop",
@@ -138,3 +138,58 @@ def test_end_to_end_eval_then_export(settings, tmp_path):
 def test_export_without_eval_raises(settings):
     with pytest.raises(ValueError):
         build_export(store.connect(settings.db_path))
+
+
+def test_wilson_interval_behaves():
+    from acp.evals.report import wilson
+
+    lo, hi = wilson(19, 19)
+    assert hi == 1.0 and 0.8 < lo < 0.9  # perfect score on 19 questions still allows ~83%
+    lo, hi = wilson(0, 10)
+    assert lo == 0.0 and hi < 0.35
+    assert wilson(0, 0) is None
+    lo, hi = wilson(50, 100)
+    assert lo < 0.5 < hi
+
+
+def test_aggregate_includes_confidence_intervals():
+    s = aggregate([_result(), _result(passed=False, hallucinated=True)])
+    assert s["counts"]["pass_rate"] == {"k": 1, "n": 2}
+    lo, hi = s["ci95"]["pass_rate"]
+    assert lo < 0.5 < hi
+
+
+def test_judge_labels_are_valid_and_match_corpus():
+    from acp.config import get_settings
+    from acp.evals.judge_check import context_for, load_labels
+    from acp.index import load_and_chunk
+
+    items = load_labels()
+    chunks = load_and_chunk(get_settings().corpus_path)
+    assert len(items) >= 30 and len({i["id"] for i in items}) == len(items)
+    assert any(i["unsupported"] for i in items) and any(not i["unsupported"] for i in items)
+    for i in items:
+        assert context_for(i["sources"], chunks)
+
+
+def test_judge_check_scoring_and_run_with_fake_judge():
+    from acp.evals.judge_check import run_judge_check, score
+
+    rows = [
+        {"label": True, "predicted": True, "kind": "a"},
+        {"label": False, "predicted": True, "kind": "a"},
+        {"label": True, "predicted": False, "kind": "b"},
+        {"label": False, "predicted": False, "kind": "b"},
+    ]
+    s = score(rows)
+    assert s["accuracy"] == 0.5 and s["precision"] == 0.5 and s["recall"] == 0.5
+    judge = FakeLLM()
+    judge.grounding_report = _report(("claim", False))  # always flags a hallucination
+    items = [
+        {"id": "x", "kind": "k", "sources": ["Inception"], "unsupported": True, "answer": "a", "labelled_by": "author"}
+    ]
+    from acp.config import get_settings
+    from acp.index import load_and_chunk
+
+    out = run_judge_check(judge, items, load_and_chunk(get_settings().corpus_path), progress=lambda *_: None)
+    assert out["accuracy"] == 1.0 and out["confusion"]["tp"] == 1

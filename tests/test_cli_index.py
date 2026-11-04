@@ -9,7 +9,7 @@ from acp.retrieval import FaissRetriever
 
 def test_corpus_chunks_match_known_count():
     docs = load_and_chunk(ROOT / "data" / "corpus.txt")
-    assert len(docs) == 13
+    assert len(docs) == 31
     assert {d.metadata["source"] for d in docs} >= {"Universe notes"}
 
 

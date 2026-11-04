@@ -95,7 +95,8 @@ def run_eval(
         "eval_id": eval_id,
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "agent_model": settings.model,
-        "summary": aggregate(results),
+        "judge_model": judge_llm.model,
+        "summary": {**aggregate(results), "judge_model": judge_llm.model},
         "results": results,
     }
     conn = store.connect(settings.db_path)
