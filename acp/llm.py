@@ -31,6 +31,7 @@ class LLMResult:
     output_tokens: int = 0
     latency_ms: float = 0.0
     retries: int = 0
+    model: str = ""  # which model actually served the call (differs from the default when falling back)
 
 
 class LLM(Protocol):
@@ -115,7 +116,7 @@ class GroqLLM:
     def complete(self, prompt: str, *, purpose: str) -> LLMResult:
         msg, ms, retries = self._call(lambda: self._chat.invoke(prompt))
         tin, tout = self._tokens(msg)
-        return LLMResult(str(msg.content).strip(), None, tin, tout, ms, retries)
+        return LLMResult(str(msg.content).strip(), None, tin, tout, ms, retries, self.model)
 
     def structured(self, schema: type[T], prompt: str, *, purpose: str) -> LLMResult:
         runnable = self._chat.with_structured_output(schema, include_raw=True)
@@ -128,7 +129,7 @@ class GroqLLM:
 
         out, ms, retries = self._call(go)
         tin, tout = self._tokens(out["raw"])
-        return LLMResult("", out["parsed"], tin, tout, ms, retries)
+        return LLMResult("", out["parsed"], tin, tout, ms, retries, self.model)
 
 
 def get_llm(settings: Settings) -> LLM:

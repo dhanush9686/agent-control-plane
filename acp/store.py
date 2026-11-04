@@ -137,6 +137,24 @@ MIGRATIONS: dict[int, list[str]] = {
         )""",
     ],
 }
+MIGRATIONS[3] = [
+    # Tokens spent per model per UTC day (survives restarts, so the daily free-tier cap is honoured across runs).
+    """CREATE TABLE IF NOT EXISTS model_usage (
+        model  TEXT NOT NULL,
+        day    TEXT NOT NULL,
+        tokens INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (model, day)
+    )""",
+    # Identical question on the same document returns the stored answer instead of spending tokens again.
+    """CREATE TABLE IF NOT EXISTS answer_cache (
+        cache_key  TEXT PRIMARY KEY,           -- sha256(owner, doc, normalized question)
+        owner_id   TEXT NOT NULL,
+        doc_id     TEXT NOT NULL,
+        response   TEXT NOT NULL,              -- JSON of the API answer
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_cache_doc ON answer_cache(doc_id)",
+]
 LATEST = max(MIGRATIONS)
 
 

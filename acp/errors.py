@@ -20,3 +20,12 @@ class EmptyIndexError(ACPError):
 
 class LLMUnavailableError(ACPError):
     """The LLM provider kept failing after all retries (rate limit, timeout, outage)."""
+
+
+class RateLimited(ACPError):
+    """A limit was hit (per-user rate, daily quota, or the shared model budget). The API turns this into HTTP 429."""
+
+    def __init__(self, message: str, retry_after: float, scope: str = "rate") -> None:
+        super().__init__(message)
+        self.retry_after = max(1.0, float(retry_after))
+        self.scope = scope  # rate | daily_asks | daily_uploads | model_budget

@@ -28,15 +28,16 @@ from typing import Any
 
 from acp import store
 from acp.config import ROOT, Settings
-from acp.embeddings import Embedder, HashEmbedder
+from acp.embeddings import Embedder
 from acp.evals.report import wilson
 from acp.hybrid import CANDIDATES, DocRetriever
-from acp.ingest.chunking import chunk_document
+from acp.ingest.chunking import Chunk, chunk_document
 from acp.ingest.pdf import PageText, ParsedPdf
 from acp.kb import KnowledgeBase
+from acp.vectorstore import PineconeStore, VectorStore
 
 OUT = ROOT / "results" / "longdoc_retrieval.json"
-OWNER, DOC = "a" * 16, "d" * 16
+OWNER, DOC = "e" * 16, "d" * 16  # a dedicated namespace; the eval deletes its vectors when done
 PAGE_CHARS = 2000  # a lighter-than-dense printed page; local prose supplies ~940K chars (~60% of a dense 500-page book)
 
 _FIRST = ["Halvorsen", "Quillfeather", "Brannigan", "Ostrander", "Valdemar", "Kettleby", "Marchetti", "Lindqvist"]
@@ -188,6 +189,7 @@ def distinctive_query(text: str, doc_freq: dict[str, int], words: int = 5, seed:
 
 def run(
     embedder: Embedder,
+    vstore: VectorStore,
     n_pages: int = 400,
     depths: tuple[int, ...] = (0, 25, 50, 75, 100),
     n_needles: int = 25,
@@ -201,53 +203,71 @@ def run(
     progress(f"{n_pages} pages -> {len(chunks)} chunks; embedding...")
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "t.db"
-        kb = KnowledgeBase(Path(tmp) / "kb", embedder)
+        kb = KnowledgeBase(Path(tmp) / "kb", embedder, vstore)
         conn = store.connect(db)
         kb.add_document(conn, OWNER, DOC, chunks)
         conn.close()
-        reranker = None
-        if use_rerank:
-            from acp.rerank import CrossEncoderReranker
+        try:
+            return _measure(kb, db, chunks, needles, where, depths, n_pages, n_synthetic, use_rerank, embedder)
+        finally:
+            vstore.delete_doc(OWNER, DOC)  # never leave eval vectors behind in the user's Pinecone index
 
-            reranker = CrossEncoderReranker()
-        retrievers: dict[str, DocRetriever] = {
-            m: DocRetriever(kb, lambda: store.connect(db), OWNER, DOC, "demo.pdf", mode=m)
-            for m in ("dense", "bm25", "hybrid")
-        }
-        if reranker:
-            retrievers["hybrid+rerank"] = DocRetriever(
-                kb, lambda: store.connect(db), OWNER, DOC, "demo.pdf", mode="hybrid", reranker=reranker
-            )
 
-        # needle cases: the target is every chunk containing the needle's rare key
-        needle_cases = []
-        for i, nd in enumerate(needles):
-            targets = {c.idx for c in chunks if nd["key"] in c.text}
-            needle_cases.append(
-                {"query": nd["question"], "targets": targets, "pages": {where[i]}, "depth": depths[i % len(depths)]}
-            )
-        by_depth: dict[int, Any] = {}
-        for d in depths:
-            sub = [c for c in needle_cases if c["depth"] == d]
-            by_depth[d] = evaluate_modes(retrievers, sub, ks=(5,)) if sub else {}
-        # synthetic QA from random chunks
-        df: dict[str, int] = {}
-        for c in chunks:
-            for w in set(w.lower() for w in re.findall(r"[A-Za-z]{4,}", c.text)):
-                df[w] = df.get(w, 0) + 1
-        rng = random.Random(1)
-        sample = rng.sample(chunks, min(n_synthetic, len(chunks)))
-        synth_cases = [{"query": distinctive_query(c.text, df), "targets": {c.idx}, "pages": {c.page}} for c in sample]
-        report = {
-            "pages": n_pages,
-            "chunks": len(chunks),
-            "embedder": type(embedder).__name__,
-            "needles": evaluate_modes(retrievers, needle_cases),
-            "needles_by_depth": by_depth,
-            "synthetic_qa": evaluate_modes(retrievers, synth_cases),
-            "candidates_per_searcher": CANDIDATES,
-        }
-    return report
+def _measure(
+    kb: KnowledgeBase,
+    db: Path,
+    chunks: list[Chunk],
+    needles: list[dict[str, str]],
+    where: dict[int, int],
+    depths: tuple[int, ...],
+    n_pages: int,
+    n_synthetic: int,
+    use_rerank: bool,
+    embedder: Embedder,
+) -> dict[str, Any]:
+    reranker = None
+    if use_rerank:
+        from acp.rerank import CrossEncoderReranker
+
+        reranker = CrossEncoderReranker()
+    retrievers: dict[str, DocRetriever] = {
+        m: DocRetriever(kb, lambda: store.connect(db), OWNER, DOC, "demo.pdf", mode=m)
+        for m in ("dense", "bm25", "hybrid")
+    }
+    if reranker:
+        retrievers["hybrid+rerank"] = DocRetriever(
+            kb, lambda: store.connect(db), OWNER, DOC, "demo.pdf", mode="hybrid", reranker=reranker
+        )
+
+    # needle cases: the target is every chunk containing the needle's rare key
+    needle_cases = []
+    for i, nd in enumerate(needles):
+        targets = {c.idx for c in chunks if nd["key"] in c.text}
+        needle_cases.append(
+            {"query": nd["question"], "targets": targets, "pages": {where[i]}, "depth": depths[i % len(depths)]}
+        )
+    by_depth: dict[int, Any] = {}
+    for d in depths:
+        sub = [c for c in needle_cases if c["depth"] == d]
+        by_depth[d] = evaluate_modes(retrievers, sub, ks=(5,)) if sub else {}
+    # synthetic QA from random chunks
+    df: dict[str, int] = {}
+    for c in chunks:
+        for w in set(w.lower() for w in re.findall(r"[A-Za-z]{4,}", c.text)):
+            df[w] = df.get(w, 0) + 1
+    rng = random.Random(1)
+    sample = rng.sample(chunks, min(n_synthetic, len(chunks)))
+    synth_cases = [{"query": distinctive_query(c.text, df), "targets": {c.idx}, "pages": {c.page}} for c in sample]
+    return {
+        "pages": n_pages,
+        "chunks": len(chunks),
+        "embedder": type(embedder).__name__,
+        "vector_store": "pinecone",
+        "needles": evaluate_modes(retrievers, needle_cases),
+        "needles_by_depth": by_depth,
+        "synthetic_qa": evaluate_modes(retrievers, synth_cases),
+        "candidates_per_searcher": CANDIDATES,
+    }
 
 
 def render(report: dict[str, Any]) -> str:
@@ -260,7 +280,7 @@ def render(report: dict[str, Any]) -> str:
 
     head = "| mode | recall@1 | recall@5 (95% CI) | recall@10 | MRR | page hit@5 |\n|---|---|---|---|---|---|"
     out = [
-        f"{report['pages']} pages, {report['chunks']} chunks, embedder={report['embedder']}",
+        f"{report['pages']} pages, {report['chunks']} chunks, {report['embedder']}, {report.get('vector_store', '?')}",
         "",
         "**Needles**",
         head,
@@ -278,17 +298,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--depths", default="0,25,50,75,100")
     p.add_argument("--needles", type=int, default=25)
     p.add_argument("--synthetic", type=int, default=100)
-    p.add_argument("--embedder", choices=["minilm", "hash"], default="minilm")
+    p.add_argument("--index", default="acp-eval-384", help="Pinecone index for the eval (created if missing)")
     p.add_argument("--rerank", action="store_true", help="also evaluate hybrid + cross-encoder reranking")
     args = p.parse_args(argv)
-    if args.embedder == "hash":
-        embedder: Embedder = HashEmbedder(256)
-    else:
-        from acp.embeddings import MiniLMEmbedder
+    from dotenv import load_dotenv
 
-        embedder = MiniLMEmbedder.shared(Settings().embedding_model)
+    from acp.embeddings import MiniLMEmbedder
+
+    load_dotenv(ROOT / ".env")  # PINECONE_API_KEY lives here; never printed
+    embedder = MiniLMEmbedder.shared(Settings().embedding_model)
+    vstore = PineconeStore.connect(dimension=embedder.dim, index_name=args.index)
     report = run(
-        embedder, args.pages, tuple(int(x) for x in args.depths.split(",")), args.needles, args.synthetic, args.rerank
+        embedder,
+        vstore,
+        args.pages,
+        tuple(int(x) for x in args.depths.split(",")),
+        args.needles,
+        args.synthetic,
+        args.rerank,
     )
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2, default=str))

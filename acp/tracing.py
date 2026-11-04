@@ -333,7 +333,7 @@ class TracedLLM:
         self.model = inner.model
 
     def _record(self, sp: SpanHandle, res: LLMResult) -> None:
-        cost = self._tracing.settings.cost_usd(res.input_tokens, res.output_tokens)
+        cost = self._tracing.settings.cost_usd(res.input_tokens, res.output_tokens, res.model or self.model)
         sp.set(
             {
                 "acp.input_tokens": res.input_tokens,
@@ -342,7 +342,7 @@ class TracedLLM:
                 "acp.retries": res.retries,
             }
         )
-        sp.attr(model=self.model, provider_latency_ms=round(res.latency_ms, 1))
+        sp.attr(model=res.model or self.model, provider_latency_ms=round(res.latency_ms, 1))
 
     def complete(self, prompt: str, *, purpose: str) -> LLMResult:
         with self._tracing.span(f"llm.{purpose}", "llm") as sp:

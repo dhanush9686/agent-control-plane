@@ -95,12 +95,24 @@ class Settings:
     model_tpm: int = field(default_factory=lambda: _env_int("ACP_MODEL_TPM", 6500))  # headroom under Groq's 8,000
     model_daily_tokens: int = field(default_factory=lambda: _env_int("ACP_MODEL_DAILY_TOKENS", 180_000))
     context_token_budget: int = field(default_factory=lambda: _env_int("ACP_CONTEXT_TOKENS", 3500))
+    # Which models answer which step, in fallback order (comma separated env vars). Cheap/fast model judges,
+    # the strongest synthesizes; when one is out of free-tier budget the next is used.
+    judge_models: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            m.strip() for m in os.environ.get("ACP_JUDGE_MODELS", "openai/gpt-oss-20b,qwen/qwen3.8-27b").split(",")
+        )
+    )
+    synth_models: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            m.strip() for m in os.environ.get("ACP_SYNTH_MODELS", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",")
+        )
+    )
     rerank: bool = field(default_factory=lambda: _env_bool("ACP_RERANK", False))
     store_chunk_text: bool = field(default_factory=lambda: _env_bool("ACP_STORE_CHUNK_TEXT", False))  # privacy default
 
-    def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
-        """Estimated dollars for one LLM call, from the price table."""
-        p_in, p_out = self.prices.get(self.model, (0.0, 0.0))
+    def cost_usd(self, input_tokens: int, output_tokens: int, model: str | None = None) -> float:
+        """Estimated dollars for one LLM call, from the price table (for `model`, default the main model)."""
+        p_in, p_out = self.prices.get(model or self.model, (0.0, 0.0))
         return (input_tokens * p_in + output_tokens * p_out) / 1_000_000
 
 

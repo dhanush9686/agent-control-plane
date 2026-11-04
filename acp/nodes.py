@@ -19,6 +19,7 @@ from typing import Any
 from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
+from acp.budget import fit_documents
 from acp.config import Settings
 from acp.llm import LLM
 from acp.retrieval import Retriever
@@ -97,8 +98,9 @@ def make_nodes(llm: LLM, retriever: Retriever, settings: Settings) -> dict[str, 
         existing = state.get("retrieved_docs", [])
         seen = {d.page_content for d in existing}
         new_docs = [d for d in results if d.page_content not in seen]  # dedup across attempts
+        combined, _dropped = fit_documents(existing + new_docs, settings.context_token_budget)  # stay under TPM cap
         return {
-            "retrieved_docs": existing + new_docs,
+            "retrieved_docs": combined,
             "search_attempts": state.get("search_attempts", 0) + 1,
         }
 

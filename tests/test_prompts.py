@@ -73,3 +73,27 @@ def test_default_refine_prompt_is_unchanged(settings):
     ret = type("R", (), {"search": lambda self, q, k: [FILM]})()
     build_graph(llm, ret, settings).invoke(initial_state("q"))
     assert "A search over a small film-knowledge corpus did not return" in dict(llm.prompts)["refine_query"]
+
+
+def test_retrieve_node_keeps_context_under_the_token_budget(tmp_path):
+    from acp.budget import estimate_tokens
+
+    big = [
+        Document(page_content=f"chunk {i} " + "word " * 180, metadata={"citation": f"f.pdf p.{i}", "source": "f.pdf"})
+        for i in range(30)
+    ]
+    s = Settings(db_path=tmp_path / "t.db", top_k=30, context_token_budget=1500, max_attempts=2)
+    llm = FakeLLM([True])
+    ret = type("R", (), {"search": lambda self, q, k: big})()
+    final = build_graph(llm, ret, s).invoke(initial_state("q"))
+    kept = final["retrieved_docs"]
+    assert 1 <= len(kept) < 30 and [d.metadata["citation"] for d in kept][0] == "f.pdf p.0"
+    synth_prompt = dict(llm.prompts)["synthesize"]
+    assert estimate_tokens(synth_prompt) < 1500 + 300  # the whole prompt, not just the context, fits the budget
+
+
+def test_default_budget_leaves_the_small_film_corpus_untouched(settings):
+    llm = FakeLLM([True])
+    ret = type("R", (), {"search": lambda self, q, k: [FILM, UPLOAD]})()
+    final = build_graph(llm, ret, settings).invoke(initial_state("q"))
+    assert len(final["retrieved_docs"]) == 2
