@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 Q ?= Who kills Garuda, and how does Rocky's story end?
 
-.PHONY: setup index run demo eval gate export test test-live lint fmt serve
+.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up
 
 setup:  ## create venv, install deps, build the search index
 	python3 -m venv .venv
@@ -21,6 +21,15 @@ demo:  ## run four demo questions
 
 eval:  ## run the golden set (19 questions; slow on the free tier)
 	$(PY) -m acp.evals --pause 1
+
+eval-naive:  ## same golden set with the one-shot RAG baseline (agent-vs-agent comparison)
+	$(PY) -m acp.evals --agent naive --pause 1 --label naive
+
+judge-check:  ## measure the grader itself on labelled answers (needs both judge models' quota)
+	$(PY) -m acp.evals.judge_check --judge-model qwen/qwen3.8-27b openai/gpt-oss-120b
+
+compare:  ## compare two eval runs: make compare A=<eval_id> B=<eval_id>
+	$(PY) -m acp.evals.compare $(A) $(B)
 
 gate:  ## fail (exit 1) if eval scores are below evals/thresholds.json
 	$(PY) scripts/check_regression.py
@@ -44,3 +53,16 @@ fmt:
 
 serve:  ## preview the dashboard at http://localhost:8000
 	$(PY) -m http.server 8000 -d dashboard
+
+up:  ## free local services: Kafka (19092) + Neo4j (7474/7687) via Docker
+	docker compose up -d kafka neo4j
+
+kafka-consumer:  ## drain the span topic into SQLite (run the agent with ACP_TRACE_MODE=kafka)
+	$(PY) scripts/kafka_consumer.py
+
+neo4j:  ## load the lineage graph into the local Neo4j
+	$(PY) scripts/load_neo4j.py
+
+k8s-up:  ## deploy the dashboard to the current kube context (e.g. minikube)
+	docker build -f Dockerfile.dashboard -t acp-dashboard:0.1 .
+	kubectl apply -f k8s/dashboard.yaml

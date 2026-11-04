@@ -46,8 +46,12 @@ class Settings:
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     top_k: int = 3  # chunks fetched per search
     max_attempts: int = 2  # retrieval attempts before we stop looping
-    llm_timeout_s: float = 60.0
-    llm_max_retries: int = 4  # extra tries on 429/5xx/timeouts, with backoff
+    llm_timeout_s: float = field(
+        default_factory=lambda: float(os.environ.get("ACP_LLM_TIMEOUT_S", "25"))
+    )  # hung calls retry sooner
+    llm_max_retries: int = field(
+        default_factory=lambda: int(os.environ.get("ACP_LLM_MAX_RETRIES", "4"))
+    )  # extra tries on 429/5xx/timeouts, with backoff
     trace_mode: str = field(default_factory=lambda: os.environ.get("ACP_TRACE_MODE", "sync"))  # sync | batch | kafka
     kafka_bootstrap: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_BOOTSTRAP", "localhost:19092"))
     kafka_topic: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_TOPIC", "acp.spans"))

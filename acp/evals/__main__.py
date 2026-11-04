@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
         "--agent", choices=AGENT_KINDS, default="graph", help="graph = full agent, naive = one-shot RAG baseline"
     )
     p.add_argument("--agent-model", help="Override the answering model (e.g. openai/gpt-oss-20b)")
+    p.add_argument("--workers", type=int, default=1, help="Questions to run in parallel (3-4 is safe on the free tier)")
     p.add_argument("--label", help="Free-text label stored with the run (e.g. 'baseline')")
     args = p.parse_args(argv)
 
@@ -49,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         agent = Agent(get_llm(settings), FaissRetriever(settings), settings, Tracing(settings), kind=args.agent)
         judge_name = args.judge_model or settings.judge_model
         judge = get_llm(judge_settings(settings, None if judge_name == "same" else judge_name))
-        report = run_eval(agent, judge, cases, settings, pause_s=args.pause, label=args.label)
+        report = run_eval(agent, judge, cases, settings, pause_s=args.pause, label=args.label, workers=args.workers)
     except ACPError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

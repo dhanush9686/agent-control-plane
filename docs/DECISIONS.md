@@ -51,3 +51,34 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 
 ## 11. Index is rebuilt, not committed
 - `data/faiss_index/` is gitignored; `make setup` builds it. FAISS indexes are loaded with pickle (`allow_dangerous_deserialization=True`), which is only safe for files you built yourself, so we never ship one.
+
+# Extensions (added after the first release)
+
+## 12. Independent grader, two-step claim checking
+- **Why:** with the same model answering and grading, shared blind spots and self-preference are likely. The default grader is now `qwen/qwen3.8-27b` (a different model family, still free on Groq); `--judge-model same` restores the old behaviour. Claim extraction and verification are separate calls: extraction never sees the retrieved context, so it cannot be nudged by it.
+- **Cost:** two LLM calls per non-refusal answer instead of one (skipped when there are no claims). Eval wall-clock time roughly doubles on the free tier.
+- **Measured, not assumed:** `acp.evals.judge_check` scores the grader on 38 labelled answers (swapped names, changed numbers, true-but-absent facts, refusals). Those labels are author-written adversarial cases, **not** independent human annotation; add real human labels in `evals/judge_labels_human.yaml`.
+
+## 13. Confidence intervals instead of bare percentages
+- 95% Wilson score intervals on every headline rate. With 58 questions an interval is still wide; showing it stops us over-reading a 2-question difference. Run-to-run variance is shown by keeping earlier evals and a trends view.
+
+## 14. Larger corpus built to expose training-data leakage
+- The Nolan entries were chosen because the answering model already knows many of these facts. Questions such as "who was the cinematographer of Interstellar?" have a true real-world answer that the knowledge base deliberately lacks; the correct behaviour is to refuse. That tests grounding discipline, not trivia.
+- **Limit:** the corpus is still 31 chunks written by the author in their own words. It is not a benchmark corpus.
+
+## 15. Second agent = naive RAG baseline, paired comparison
+- Same retriever, prompt and model; the only difference is the judge/refine loop. This isolates what the loop buys. Results are compared per question with an exact sign test on discordant pairs, because with few differing questions raw win counts mislead.
+
+## 16. Lineage graph without requiring a graph database
+- Nodes/edges (Question, Run, Chunk, Document, Answer, Claim) are built in plain Python and rendered by the dashboard. The same graph exports as idempotent Cypher (MERGE on unique ids with constraints) and loads into a local Neo4j Community container. A claim is linked to a chunk when the judge's verbatim evidence quote matches that chunk's text (exact, then a fuzzy 80% word overlap); a quote that matches no chunk leaves the claim unlinked.
+
+## 17. Kafka as an optional trace transport
+- A `KafkaSpanExporter` publishes JSON span records keyed by `run_id` (so one run's spans stay ordered on one partition); `scripts/kafka_consumer.py` writes them into SQLite using the same `write_record` as the direct exporter, which is idempotent (so redelivery is harmless). Poison messages are skipped. Default mode stays direct SQLite; Kafka is opt-in via `ACP_TRACE_MODE=kafka`.
+- Broker runs on host port 19092 to avoid clashing with a Kafka already on 9092.
+- **Also added:** `batch` mode (background thread; flushed before a run returns).
+
+## 18. Scheduled evals and trends
+- `.github/workflows/eval.yml` runs the full eval weekly and appends a point to the committed `results/history.jsonl`; the dashboard's Trends tab draws it. It needs one repository secret (`GROQ_API_KEY`, free key). Without it the job exits cleanly. The workflow has not yet run on GitHub at the time of writing.
+
+## 19. Kubernetes: what is and is not verified
+- The static dashboard Deployment/Service was built and deployed to a local minikube and served correctly through a port-forward. The eval CronJob manifest was validated by the API server (`--dry-run=server`) but not executed (large image, needs a key).

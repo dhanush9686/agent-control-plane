@@ -35,10 +35,12 @@ flowchart LR
     E --> G[Grounding judge + deterministic checks]
     G --> REP[results/eval_report.json<br/>+ SQLite eval tables]
     REP --> GATE[Regression gate<br/>exit 1 below thresholds]
+    T -.optional.-> K[(Kafka topic)] -.-> C[consumer] -.-> DB
+    REP --> L[Lineage graph<br/>Neo4j / dashboard]
     DB --> X[export script] --> D[Static dashboard<br/>dashboard/]
 ```
 
-Code map: `acp/graph.py` (LangGraph StateGraph and routing), `acp/nodes.py` (the four nodes), `acp/llm.py` (Groq client with retry/backoff), `acp/tracing.py` + `acp/store.py` (spans to SQLite), `acp/evals/` (golden set, checks, grounding judge, report), `scripts/` (gate, export), `dashboard/` (static site).
+Code map: `acp/agents` is just `build_graph(kind=...)` in `acp/graph.py`; `acp/graph.py` (LangGraph StateGraph and routing), `acp/nodes.py` (the four nodes), `acp/llm.py` (Groq client with retry/backoff), `acp/tracing.py` + `acp/store.py` (spans to SQLite), `acp/evals/` (golden set, checks, grounding judge, report), `scripts/` (gate, export), `dashboard/` (static site), `acp/lineage.py` (claim-to-chunk graph, Cypher export), `acp/streaming.py` + `scripts/kafka_consumer.py` (Kafka), `acp/history.py` (trend data), `k8s/` and `docker-compose.yml`.
 
 ## Quickstart (about 5 minutes)
 
@@ -63,6 +65,11 @@ make run Q="Who kills Garuda, and how does Rocky's story end?"
 | `make serve` | Preview the dashboard at http://localhost:8000 |
 | `make test` / `make test-live` | Offline unit tests / real Groq+FAISS end-to-end tests |
 | `make lint` | ruff check + format check |
+| `make eval-naive` | Golden set with the one-shot RAG baseline (for agent-vs-agent comparison) |
+| `make compare A=<id> B=<id>` | Paired comparison of two eval runs (sign test) |
+| `make judge-check` | Measure the grader itself on 38 labelled answers |
+| `make up` / `make kafka-consumer` / `make neo4j` | Free local Kafka + Neo4j (Docker); stream traces; load the lineage graph |
+| `make k8s-up` | Deploy the dashboard to the current kube context (e.g. minikube) |
 
 Equivalent without make: `python -m acp.cli "question"`, `python -m acp.evals`.
 
@@ -85,9 +92,11 @@ For each of 19 golden questions (`evals/golden.yaml`: answerable, multi-hop, thi
 
 Metric definitions: *answered-correctly* = of questions that should be answered, share answered with the right content; *hallucination rate* = share of non-refused answers with at least one unsupported claim; *refusal correctness* = share of all questions where answer-vs-refuse matched; *pass rate* = share with no failure of any kind.
 
-## Results (real run, `openai/gpt-oss-120b` on Groq free tier)
+## Results
 
-Eval `4276d06599`, 19 questions, 0 errors, full data in `results/eval_report.json`:
+> **Which numbers these are.** The table below is the last *completed* evaluation: **19 questions on the original 13-chunk corpus**, answered by `openai/gpt-oss-120b` and graded by the **same** model (single-call grader). Since then the corpus grew to 31 chunks, the golden set to 58 questions, and the grader became a two-step, different-model judge. **The 58-question runs, the agent comparison and the grader-accuracy numbers have not been run yet** (see "Built but not yet measured" below), so nothing below should be read as results for the new setup.
+
+Eval `4276d06599`, 19 questions, 0 errors, data in `results/eval_report.json`:
 
 | Metric | Value |
 |---|---|
@@ -95,7 +104,7 @@ Eval `4276d06599`, 19 questions, 0 errors, full data in `results/eval_report.jso
 | Hallucination rate | 0.0% |
 | Refusal correctness | 100.0% |
 | Citation rate | 100.0% |
-| Overall pass rate | 100.0% |
+| Overall pass rate | 100.0% (95% Wilson CI for 19/19 is roughly 83-100%) |
 | Avg latency | 11.1 s (see note) |
 | Avg cost / question (est.) | $0.00055 (about 1,430 input + 450 output tokens, 2.7 LLM calls) |
 
@@ -109,32 +118,56 @@ Eval `4276d06599`, 19 questions, 0 errors, full data in `results/eval_report.jso
 | prompt_injection | 3 | 100% | 0 |
 
 **Read these numbers carefully.**
-- This is **one run of 19 questions**. It is a small sample, and the agent is not deterministic. An **earlier full run** (kept in the dashboard under "Earlier") scored 89.5%: the judge caught a real embellishment on the thin Dragon entry (the agent added "Luger's role... drives the narrative", which the corpus never says), and it also falsely flagged the sentence "That is not in the knowledge base." as an unsupported claim. The second was a bug in my evaluator, fixed by filtering refusal sentences deterministically (`acp/evals/grounding.py`). The first is the system working as intended.
-- **Latency is inflated by free-tier rate limiting.** 44 retries with backoff happened across the 19 questions; individual runs ranged 1.4 s to 20 s. Do not read 11 s as the model's speed.
-- The grounding judge uses the same model that wrote the answers (see limitations).
+- It is **one run of 19 questions**, so the interval is wide, and the agent is not deterministic. An **earlier full run** (the dashboard's "Earlier" selector) scored 89.5%: the judge caught a real embellishment on the thin Dragon entry ("Luger's role... drives the narrative", which the corpus never says), and it also falsely flagged "That is not in the knowledge base." as an unsupported claim. The second was an evaluator bug, fixed by filtering refusal sentences deterministically. The first is the system working as intended.
+- **Latency is inflated by free-tier rate limiting** (44 retries in that run; individual runs 1.4 s to 20 s). Do not read 11 s as model speed.
+- "Cost" is what the tokens would cost at paid rates; on Groq's free tier the real spend is $0.
 
-## Limitations
+## Limitations: what changed and what is still true
 
-- Tiny corpus (13 chunks) and a small golden set (19): good for demonstrating the method, not a statistically strong benchmark.
-- **LLM-as-judge is imperfect.** It can share blind spots with the answering model (same model here by default; `--judge-model` lets you pick another), it can be lenient toward fluent text, and its verdicts vary run to run. Deterministic checks reduce but do not remove this. Claim splitting and checking happen in one call.
-- Keyword checks for expected content are coarse; the grounding judge, not the keywords, is what catches wrong facts.
-- Cost is estimated from a price table, not read from a bill. Latency includes rate-limit waits.
-- Tracing is synchronous and writes to local SQLite: fine for this scale, not for high-volume production.
-- CI runs lint + offline tests only. Evals call a paid/free-tier API, so they run on demand (`make eval`), not on every push; the regression gate checks the committed report.
+| Original limitation | Now | Still true |
+|---|---|---|
+| Tiny corpus (13 chunks), 19 questions | Corpus is 31 chunks (adds six Nolan films, a thin entry and a "not one universe" note); golden set is 58 questions across the same six categories, with questions the model likely *knows* but the KB lacks (must refuse); 95% Wilson confidence intervals on every rate | Still small and **author-written in the author's own words**, not a benchmark. Intervals at n=58 are still wide |
+| Judge shares the answerer's blind spots; one call | Grader defaults to a different model family (`qwen/qwen3.8-27b`); claim extraction and verification are separate calls; a 38-item labelled set measures the grader's accuracy (`make judge-check`); refusal sentences filtered deterministically | **The grader-accuracy numbers have not been produced yet.** The labels are author-written adversarial cases, not independent human annotation (drop real labels in `evals/judge_labels_human.yaml`). LLM judges remain imperfect and vary run to run |
+| Coarse keyword checks | Unchanged | Still coarse; the grounding judge, not keywords, catches wrong facts |
+| Cost estimated, latency includes waits | Price table now covers all three free models; documented that real free-tier spend is $0 | Still an estimate; latency still includes rate-limit waits |
+| Tracing synchronous, local SQLite | Optional `batch` mode (background thread) and `kafka` mode (stream to a topic, consumer writes SQLite); SQLite in WAL mode for parallel eval workers | Default is still direct SQLite; not built for high volume |
+| CI runs lint + offline tests only | Added a weekly **scheduled eval** workflow that appends to `results/history.jsonl` (Trends tab) | **It has not run yet**: it needs a repository secret `GROQ_API_KEY` (free key). Without it the job exits cleanly |
 
-## Roadmap (NOT built)
+Other honest caveats: free-tier limits are real. Groq's free tier caps each model at 200,000 tokens/day and 8,000 tokens/minute; during this work `gpt-oss-120b` hit its daily cap mid-evaluation, which is why the 58-question runs are pending. Evals can now run several questions in parallel (`--workers`) and use shorter timeouts, but the quota is the limit.
 
-These are ideas only; none exist in this repo:
-- A second agent and agent-vs-agent comparison on the same golden set.
-- A lineage graph (e.g. Neo4j) linking claims to chunks to source documents.
-- Streaming traces through Kafka; Kubernetes deployment.
-- Scheduled evals in CI with a stored secret, and trend charts across many eval runs.
-- Larger corpora, human-labelled grounding data to measure the judge's own accuracy.
+## Built but not yet measured
+
+These exist, are covered by tests (62 offline tests; 3 live tests are skipped by default), and the infrastructure pieces were exercised against real local services. What is missing is large-scale measured *results*:
+
+| Feature | What was actually verified | Not yet done |
+|---|---|---|
+| **Second agent (naive RAG)** and paired comparison (`make eval-naive`, `make compare`) | Unit tests for the graph variant and the sign test; the dashboard "Compare agents" tab renders from `comparison.json` | No 58-question comparison run yet, so no claim about whether the judge loop helps |
+| **Lineage graph** (claims -> chunks -> documents) | Built from real eval data; **loaded into a real local Neo4j** (385 statements; 19 questions, 49 claims, 13 chunks) and queried; dashboard "Lineage" tab | Built from the 19-question run only |
+| **Kafka trace streaming** (`ACP_TRACE_MODE=kafka`) | **End-to-end with a real Kafka broker**: the agent published 6 spans, the consumer stored them in SQLite (1 run, correct tokens); failure of the broker never crashes the agent (unit test) | Not load tested; single broker |
+| **Kubernetes** | Dashboard Deployment (2 replicas) + Service built and **deployed to a local minikube** and served the page and data over a port-forward; the eval CronJob manifest passes the API server's `--dry-run=server` | The CronJob/eval image was **not built or run**; nothing deployed to a public cluster |
+| **Scheduled eval + trends** | Trend chart renders from `results/history.jsonl` (two real evals so far); workflow file written | Workflow never run on GitHub (needs the secret) |
+| **Grader accuracy** | Harness, labels and metrics tested with a fake judge; an interrupted live run on Qwen got through 35 of 38 items before I stopped it: 32 matched the labels, 0 disagreed, 3 failed on API errors (rate limits / malformed JSON). That is a progress log, not a saved report | No complete, recorded accuracy figure |
+
+To produce the pending results once the quota is available (e.g. the next day, or with `ACP_JUDGE_MODEL`/`--agent-model openai/gpt-oss-20b` to use a different model's quota):
+
+```bash
+make eval            # 58 questions, full agent
+make eval-naive      # same questions, baseline
+make compare A=<graph_eval_id> B=<naive_eval_id>
+make judge-check
+make export          # refresh dashboard/data
+```
+
+## Still not built
+
+- A *public* cluster deployment, managed Kafka, or a hosted graph database (everything here runs locally and free).
+- Independently human-labelled grounding data (the harness for it exists; the labels do not).
+- Evals that run in CI on every push (deliberately on a schedule, because they use API quota).
 
 ## Design decisions
 
-Short version here; full reasoning in [docs/DECISIONS.md](docs/DECISIONS.md). A plain-language walkthrough for interviews is in [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md).
+Short version here; full reasoning in [docs/DECISIONS.md](docs/DECISIONS.md) (entries 12-19 cover the extensions). A plain-language walkthrough for interviews is in [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md).
 
 - **LangGraph conditional edges** instead of a while-loop: the routing rule is one pure function that is unit tested, and the retry cap is explicit.
-- **LLM-as-judge** because "is this claim supported" needs language understanding; mitigated with a strict prompt, evidence quotes and deterministic checks.
-- **SQLite** because it is one file, zero setup, and enough for thousands of runs.
+- **LLM-as-judge** because "is this claim supported" needs language understanding; mitigated with a strict prompt, evidence quotes, deterministic checks and (now) a different-family grader.
+- **SQLite** because it is one file, zero setup, and enough for thousands of runs; Kafka is an opt-in transport, not a replacement.

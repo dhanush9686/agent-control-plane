@@ -24,3 +24,6 @@ node_modules/
 
 # built artifacts (rebuilt by `make setup`)
 data/faiss_index/
+*.db-shm
+*.db-wal
+*.db-journal

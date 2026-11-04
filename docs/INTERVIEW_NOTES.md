@@ -36,3 +36,18 @@
 8. **How do you handle rate limits?** `ChatGroq` retries are turned off; my wrapper retries on 429, 5xx, timeouts and malformed structured output with exponential backoff and jitter, honouring `retry-after`, and records the retry count on the span. One eval had 44 retries, which is why average latency (11 s) overstates model speed.
 9. **Why SQLite?** One file, transactional, plain SQL, easy JSON export for a static site. Limits: one writer, no retention, not for high volume. A real deployment would swap the exporter (OTel makes that cheap).
 10. **What would you do next / what is not built?** Roadmap, explicitly not built: a second agent for comparison, lineage graph, Kafka streaming, Kubernetes, scheduled evals with trend charts, and human-labelled data to measure the judge's accuracy. Today's evals run on demand; CI runs lint and offline tests only.
+
+
+## Extensions added later (be precise about what is measured)
+
+- **Independent grader + two-step checking:** the grader is a different model family; extraction never sees the context. Built and unit-tested; its accuracy on the 38 labelled answers is **not yet measured end to end**, so do not quote an accuracy.
+- **Naive-RAG baseline and paired sign test:** built to isolate what the judge loop buys; the 58-question comparison has **not been run**, so make no claim about the result.
+- **Lineage graph:** claims linked to the chunk containing the judge's evidence quote; loaded into a real local Neo4j and queried. Built from the 19-question run.
+- **Kafka transport:** spans keyed by run_id, an idempotent consumer, demonstrated end to end with a real broker.
+- **Kubernetes:** dashboard deployed on a local minikube; the eval CronJob only passed an API-server dry run.
+- **Real-world constraint worth telling:** Groq's free tier capped `gpt-oss-120b` at 200,000 tokens/day, which stopped the big evaluation; I diagnosed it from the 429 message and the rate-limit headers rather than guessing, and added parallel workers and shorter timeouts. Ask yourself the follow-up: "why did evals stall?"
+
+### Three more likely questions
+11. **Why a different model as grader?** To reduce self-preference and shared blind spots; I would measure it with labelled examples (the harness exists) before claiming it is better.
+12. **Why Kafka if SQLite works?** It decouples the agent from the database and lets several consumers read spans; it is opt-in and I only demonstrated a single local broker, not scale.
+13. **How would you know the judge loop helps?** Run the naive baseline on the same questions and use a paired sign test on discordant questions; the comparison is built but not run yet.

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -82,17 +83,31 @@ def run_eval(
     report_path: Path = REPORT_PATH,
     progress: Any = print,
     label: str | None = None,
+    workers: int = 1,
     history_path: Path | None = history.HISTORY_PATH,
 ) -> dict[str, Any]:
     eval_id = uuid.uuid4().hex[:10]
-    results = []
-    for i, case in enumerate(cases, 1):
-        r = evaluate_case(agent, judge_llm, case, settings)
-        results.append(r)
+    results: list[dict[str, Any]] = [{} for _ in cases]
+
+    def report_one(done: int, case: GoldenCase, r: dict[str, Any]) -> None:
         status = "ERROR" if r.get("error") else ("PASS" if r["passed"] else "FAIL")
-        progress(f"[{i}/{len(cases)}] {status} {case.id}  {'; '.join(r.get('failures', [])) or r.get('error') or ''}")
-        if pause_s:
-            time.sleep(pause_s)
+        progress(
+            f"[{done}/{len(cases)}] {status} {case.id}  {'; '.join(r.get('failures', [])) or r.get('error') or ''}"
+        )
+
+    if workers <= 1:
+        for i, case in enumerate(cases):
+            results[i] = evaluate_case(agent, judge_llm, case, settings)
+            report_one(i + 1, case, results[i])
+            if pause_s:
+                time.sleep(pause_s)
+    else:  # several questions at once: hides slow/hung API calls; results keep golden-set order
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(evaluate_case, agent, judge_llm, c, settings): i for i, c in enumerate(cases)}
+            for done, fut in enumerate(as_completed(futures), 1):
+                i = futures[fut]
+                results[i] = fut.result()
+                report_one(done, cases[i], results[i])
 
     report = {
         "eval_id": eval_id,

@@ -72,9 +72,13 @@ CREATE INDEX IF NOT EXISTS idx_eval_results_run ON eval_results(run_id);
 def connect(path: Path | str) -> sqlite3.Connection:
     """Open (and create if needed) the trace DB with the schema applied."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=10)
+    conn = sqlite3.connect(str(path), timeout=30)
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA)
+    conn.execute("PRAGMA busy_timeout=30000")  # wait for other writers instead of failing (parallel eval workers)
+    conn.execute("PRAGMA journal_mode=WAL")  # readers never block the writer
+    has_schema = conn.execute("SELECT 1 FROM sqlite_master WHERE name='runs'").fetchone()
+    if not has_schema:  # skip DDL on the hot path: it needs a write lock every time
+        conn.executescript(SCHEMA)
     return conn
 
 

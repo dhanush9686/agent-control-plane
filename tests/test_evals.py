@@ -255,3 +255,28 @@ def test_run_eval_appends_history(settings, tmp_path):
     hp = tmp_path / "hist.jsonl"
     run_eval(agent, judge, cases, settings, report_path=tmp_path / "r.json", progress=lambda *_: None, history_path=hp)
     assert len(history.load(hp)) == 1
+
+
+class _FixedRetriever:
+    def search(self, query, k):
+        return CORPUS[:k]  # always includes "KGF 1", so the citation in the fake answer is valid
+
+
+def test_parallel_workers_match_sequential_and_keep_order(settings, tmp_path):
+    tracing = Tracing(settings)
+    agent = Agent(FakeLLM(answer="Prashanth Neel directed it [KGF 1]"), _FixedRetriever(), settings, tracing)
+    cases = [GoldenCase(f"t{i}", "answerable", f"q{i}", "answer", [["Prashanth Neel"]]) for i in range(8)]
+    report = run_eval(
+        agent,
+        FakeLLM(),
+        cases,
+        settings,
+        report_path=tmp_path / "r.json",
+        progress=lambda *_: None,
+        workers=4,
+        history_path=None,
+    )
+    assert [r["case_id"] for r in report["results"]] == [c.id for c in cases]
+    assert all(r["passed"] for r in report["results"])
+    conn = store.connect(settings.db_path)  # concurrent trace writes must all land
+    assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 8
