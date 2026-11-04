@@ -104,6 +104,12 @@ class KnowledgeBase:
             conn.executemany("DELETE FROM chunks_fts WHERE rowid=?", [(i,) for i in ids])
             conn.execute("DELETE FROM chunks WHERE doc_id=? AND owner_id=?", (doc_id, owner_id))
 
+    def delete_document_data_only(self, conn: sqlite3.Connection, owner_id: str, doc_id: str) -> None:
+        """Remove rows and vectors but keep the uploaded PDF (so a retried job starts clean)."""
+        owner_id, doc_id = safe_id(owner_id), safe_id(doc_id)
+        self.store.delete_doc(owner_id, doc_id)
+        self._delete_rows(conn, owner_id, doc_id)
+
     def delete_document(self, conn: sqlite3.Connection, owner_id: str, doc_id: str) -> None:
         """Remove every trace of one document: vectors, source file, chunk rows, keyword index."""
         owner_id, doc_id = safe_id(owner_id), safe_id(doc_id)
