@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 Q ?= Who kills Garuda, and how does Rocky's story end?
 
-.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human
+.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human serve-api create-user longdoc
 
 setup:  ## create venv, install deps, build the search index
 	python3 -m venv .venv
@@ -80,3 +80,12 @@ eval-squad:  ## 60 human-written SQuAD 2.0 questions (30 answerable, 30 unanswer
 judge-check-human:  ## grade the grader on human-annotated RAGTruth + FEVER items
 	$(PY) -m acp.evals.judge_check --judge-model qwen/qwen3.8-27b \
 	  --labels data/benchmarks/judge_ragtruth.jsonl data/benchmarks/judge_fever.jsonl
+
+serve-api:  ## the upload-and-chat service (Groq + Pinecone + MiniLM), http://localhost:8000
+	$(PY) -m uvicorn acp.server.main:create_production_app --factory --host 127.0.0.1 --port 8000
+
+create-user:  ## mint an API key: make create-user NAME=alice
+	$(PY) -m acp.server.admin create-user --name "$(NAME)"
+
+longdoc:  ## retrieval-only long-document eval on real Pinecone (no LLM tokens)
+	$(PY) -m acp.evals.longdoc --retrieval-only --pages 450 --rerank

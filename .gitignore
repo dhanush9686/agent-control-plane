@@ -31,3 +31,7 @@ data/faiss_index/
 # downloaded public benchmark slices (fetched on demand; see docs/DATA_SOURCES.md)
 data/benchmarks/
 data/faiss_squad2/
+
+# document-service data (local)
+data/kb/
+data/service.db*

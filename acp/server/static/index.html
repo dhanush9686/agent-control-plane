@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask your document</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/chat.css">
+</head>
+<body>
+<a class="skip" href="#chat">Skip to chat</a>
+<header class="top">
+  <h1>Ask your document</h1>
+  <p class="sub">Upload a PDF, ask questions, and get answers with page citations.</p>
+</header>
+
+<main class="layout">
+  <section class="panel" aria-labelledby="h-key">
+    <h2 id="h-key">1. Your API key</h2>
+    <form id="key-form" class="row">
+      <label class="sr" for="key">API key</label>
+      <input id="key" type="password" autocomplete="off" placeholder="acp_..." required>
+      <button type="submit">Save</button>
+    </form>
+    <p id="me" class="muted" role="status"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-up">
+    <h2 id="h-up">2. Upload a PDF</h2>
+    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Choose a PDF file to upload">
+      <p><strong>Drop a PDF here</strong> or click to choose</p>
+      <p class="muted">Up to the size and page limits of this service. Scanned (image-only) PDFs are not supported yet.</p>
+      <input id="file" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+    <p id="upload-msg" class="muted" role="status" aria-live="polite"></p>
+    <h3>Your documents</h3>
+    <ul id="docs" class="docs" aria-label="Your documents"></ul>
+  </section>
+
+  <section id="chat" class="panel chat" aria-labelledby="h-chat">
+    <h2 id="h-chat">3. Ask a question</h2>
+    <p id="chat-doc" class="muted">Select a ready document above.</p>
+    <div id="log" class="log" role="log" aria-live="polite" aria-label="Conversation"></div>
+    <form id="ask-form" class="row">
+      <label class="sr" for="q">Your question</label>
+      <input id="q" type="text" maxlength="1000" placeholder="What does the document say about ...?" autocomplete="off" disabled>
+      <button id="ask-btn" type="submit" disabled>Ask</button>
+    </form>
+  </section>
+</main>
+
+<dialog id="trace-dialog" aria-labelledby="trace-title">
+  <h2 id="trace-title">Trace</h2>
+  <div id="trace-body"></div>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+<script src="/static/chat.js" defer></script>
+</body>
+</html>
