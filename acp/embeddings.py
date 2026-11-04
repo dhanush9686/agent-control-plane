@@ -8,17 +8,16 @@ lets tests plug in a tiny deterministic stand-in so they never load PyTorch.
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from typing import Protocol
-
-import numpy as np
 
 
 class Embedder(Protocol):
     dim: int
 
-    def embed(self, texts: list[str]) -> np.ndarray:
-        """Return an (n, dim) float32 array of L2-normalized vectors (so dot product = cosine similarity)."""
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Return one L2-normalized vector (a list of `dim` floats) per text."""
         ...
 
 
@@ -31,7 +30,7 @@ class MiniLMEmbedder:
         from sentence_transformers import SentenceTransformer
 
         self._model = SentenceTransformer(model_name, device="cpu")
-        self.dim = int(self._model.get_sentence_embedding_dimension())
+        self.dim = int(self._model.get_embedding_dimension())
         self.batch_size = batch_size
 
     @classmethod
@@ -40,9 +39,9 @@ class MiniLMEmbedder:
             cls._cache[model_name] = cls(model_name)
         return cls._cache[model_name]
 
-    def embed(self, texts: list[str]) -> np.ndarray:
+    def embed(self, texts: list[str]) -> list[list[float]]:
         vecs = self._model.encode(texts, batch_size=self.batch_size, normalize_embeddings=True, show_progress_bar=False)
-        return np.asarray(vecs, dtype="float32")
+        return vecs.tolist()
 
 
 class HashEmbedder:
@@ -55,12 +54,13 @@ class HashEmbedder:
     def __init__(self, dim: int = 256) -> None:
         self.dim = dim
 
-    def embed(self, texts: list[str]) -> np.ndarray:
-        out = np.zeros((len(texts), self.dim), dtype="float32")
-        for i, t in enumerate(texts):
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        out = []
+        for t in texts:
+            v = [0.0] * self.dim
             for w in re.findall(r"[a-z0-9]+", t.lower()):
                 h = int.from_bytes(hashlib.md5(w.encode()).digest()[:4], "little")
-                out[i, h % self.dim] += 1.0
-        norms = np.linalg.norm(out, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        return out / norms
+                v[h % self.dim] += 1.0
+            norm = math.sqrt(sum(x * x for x in v)) or 1.0
+            out.append([x / norm for x in v])
+        return out

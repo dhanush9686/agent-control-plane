@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 from langchain_core.documents import Document
 
@@ -8,6 +7,7 @@ from acp.errors import ACPError
 from acp.hybrid import DocRetriever, fts_query, rrf
 from acp.ingest.chunking import Chunk
 from acp.kb import KnowledgeBase, citation_label, safe_id
+from tests.fakes import FailingVectorStore, InMemoryVectorStore
 
 OWNER_A, OWNER_B = "a" * 16, "b" * 16
 DOC_A, DOC_B = "d1" * 8, "d2" * 8
@@ -19,9 +19,7 @@ class ZeroEmbedder:
     dim = 8
 
     def embed(self, texts):
-        v = np.zeros((len(texts), self.dim), dtype="float32")
-        v[:, 0] = 1.0
-        return v
+        return [[1.0] + [0.0] * (self.dim - 1) for _ in texts]
 
 
 def _chunks(n=20, needle_page=7):
@@ -38,7 +36,7 @@ def _chunks(n=20, needle_page=7):
 @pytest.fixture
 def env(tmp_path):
     db = tmp_path / "t.db"
-    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(256))
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(256), InMemoryVectorStore())
     conn = store.connect(db)
     kb.add_document(conn, OWNER_A, DOC_A, _chunks())
     conn.close()
@@ -93,7 +91,7 @@ def test_search_returns_page_numbered_documents(env):
 
 def test_keyword_search_rescues_a_useless_embedder(tmp_path):
     db = tmp_path / "t.db"
-    kb = KnowledgeBase(tmp_path / "kb", ZeroEmbedder())
+    kb = KnowledgeBase(tmp_path / "kb", ZeroEmbedder(), InMemoryVectorStore())
     conn = store.connect(db)
     kb.add_document(conn, OWNER_A, DOC_A, _chunks())
     conn.close()
@@ -111,13 +109,14 @@ def test_modes_are_distinct_and_validated(env):
         _retriever(kb, db, "magic")
 
 
-def test_other_users_cannot_search_my_document(env, tmp_path):
+def test_other_users_cannot_search_my_document(env):
     kb, db = env
     intruder = _retriever(kb, db, owner=OWNER_B, doc=DOC_A)  # B guesses A's doc id
-    with pytest.raises(ACPError):  # no index in B's directory
-        intruder.search("indemnification", 3)
-    conn = store.connect(db)  # and even straight SQL through the retriever's filter returns nothing for B
+    assert intruder.search("indemnification cap zyxwv42", 5) == []  # B's namespace is empty; A's text is unreachable
+    conn = store.connect(db)  # and the keyword (SQL) path filters by owner too
     assert intruder._bm25(conn, "indemnification cap", 10) == []
+    mine = _retriever(kb, db).search("indemnification cap zyxwv42", 3)
+    assert mine and all(d.metadata["doc_id"] == DOC_A for d in mine)  # sanity: the rightful owner still finds it
 
 
 def test_two_documents_never_mix(env, tmp_path):
@@ -133,36 +132,58 @@ def test_two_documents_never_mix(env, tmp_path):
 def test_delete_removes_files_rows_and_keyword_hits(env):
     kb, db = env
     d = kb.doc_dir(OWNER_A, DOC_A)
-    assert (d / "vectors.npy").is_file()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "source.pdf").write_bytes(b"%PDF-")
+    assert kb.store.count(OWNER_A, DOC_A) == 20
     conn = store.connect(db)
     kb.delete_document(conn, OWNER_A, DOC_A)
-    assert not d.exists()
+    assert not d.exists() and kb.store.count(OWNER_A, DOC_A) == 0
     assert conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM chunks_fts WHERE chunks_fts MATCH 'indemnification'").fetchone()[0] == 0
 
 
-def test_progress_is_monotonic_and_reaches_total(tmp_path):
-    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(64))
+def test_progress_covers_embedding_then_upload_and_ends_at_total(tmp_path):
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(64), InMemoryVectorStore())
     seen = []
     kb.add_document(
         store.connect(tmp_path / "t.db"), OWNER_A, DOC_A, _chunks(150, needle_page=1), lambda d, t: seen.append((d, t))
     )
-    assert [d for d, _ in seen] == sorted(d for d, _ in seen) and seen[-1] == (150, 150) and len(seen) == 3
+    done = [d for d, _ in seen]
+    assert done == sorted(done)  # never goes backwards
+    assert all(t == 300 for _, t in seen) and seen[-1] == (300, 300)  # 150 chunks: embed half, upload half
+    assert any(d <= 150 for d in done) and any(d > 150 for d in done)  # both phases reported
 
 
-def test_index_is_a_plain_npy_file_that_survives_restart(env, tmp_path):
+def test_vectors_are_normalized_and_one_per_chunk_in_the_store(env):
     kb, db = env
-    path = kb.index_path(OWNER_A, DOC_A)
-    vectors = np.load(path, allow_pickle=False)  # readable with no pickle involved
-    assert vectors.shape == (20, 256) and vectors.dtype == np.float32
-    assert np.allclose(np.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
-    assert not list(path.parent.glob("*.tmp*"))
-    fresh = KnowledgeBase(kb.root, HashEmbedder(256))  # a new process loading the same files
-    assert DocRetriever(fresh, lambda: store.connect(db), OWNER_A, DOC_A, "c.pdf").search("indemnification", 2)
+    stored = kb.store.data[OWNER_A]
+    assert len(stored) == 20 and all(k.startswith(f"{DOC_A}#") for k in stored)
+    assert all(abs(sum(x * x for x in v) - 1.0) < 1e-6 for v in stored.values())
+
+
+def test_text_never_goes_to_the_vector_store(env):
+    kb, _ = env
+    for vec in kb.store.data[OWNER_A].values():
+        assert all(isinstance(x, float) for x in vec)  # numbers only; chunk text stays in our database
+
+
+def test_failed_upload_leaves_no_rows_and_no_vectors(tmp_path):
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(64), FailingVectorStore())
+    conn = store.connect(tmp_path / "t.db")
+    with pytest.raises(RuntimeError):
+        kb.add_document(conn, OWNER_A, DOC_A, _chunks(10, needle_page=1))
+    assert conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM chunks_fts").fetchone()[0] == 0
+    assert kb.store.count(OWNER_A, DOC_A) == 0  # the one vector that was written got removed
+
+
+def test_ingest_waits_for_the_vector_service_to_make_the_document_searchable(env):
+    kb, _ = env
+    assert kb.store.visible_calls == 1
 
 
 def test_ids_cannot_escape_the_storage_directory(tmp_path):
-    kb = KnowledgeBase(tmp_path, HashEmbedder(8))
+    kb = KnowledgeBase(tmp_path, HashEmbedder(8), InMemoryVectorStore())
     for bad in ("../etc", "a/b", "", "XYZ!", "short"):
         with pytest.raises(ACPError):
             safe_id(bad)
@@ -190,29 +211,25 @@ def test_reranker_gets_the_shortlist_and_decides_the_final_order(env):
     assert reranked[0].metadata["idx"] != plain[0].metadata["idx"]
 
 
-def test_dense_search_matches_brute_force_ranking(tmp_path):
-    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(256))
+def test_dense_search_ranks_by_cosine_similarity(tmp_path):
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(256), InMemoryVectorStore())
     conn = store.connect(tmp_path / "t.db")
-    chunks = _chunks(40, needle_page=99)
-    kb.add_document(conn, OWNER_A, DOC_A, chunks)
-    q = "topic17 filler words"
-    got = kb.dense_search(OWNER_A, DOC_A, q, 5)
-    vecs = HashEmbedder(256).embed([c.text for c in chunks])
-    expected = list(np.argsort(-(vecs @ HashEmbedder(256).embed([q])[0]), kind="stable")[:5])
-    assert got == [int(i) for i in expected] and got[0] == 17
+    kb.add_document(conn, OWNER_A, DOC_A, _chunks(40, needle_page=99))
+    got = kb.dense_search(OWNER_A, DOC_A, "topic17 filler words", 5)
+    assert got[0] == 17 and len(got) == 5 and len(set(got)) == 5
 
 
-def test_knowledge_base_never_imports_faiss_or_torch():
-    """Regression: FAISS + PyTorch in one process aborts on macOS (two OpenMP runtimes). The KB must avoid both."""
+def test_knowledge_base_never_imports_faiss_torch_or_numpy():
+    """Regression: FAISS + PyTorch in one process aborts on macOS; and the project uses Pinecone, not local math."""
     import subprocess
     import sys
 
-    code = "import sys, acp.kb, acp.hybrid; print('faiss' in sys.modules, 'torch' in sys.modules)"
+    code = "import sys, acp.kb, acp.hybrid; print([m for m in ('faiss','torch','numpy') if m in sys.modules])"
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
-    assert r.stdout.strip() == "False False", r.stdout + r.stderr
+    assert r.stdout.strip() == "[]", r.stdout + r.stderr
 
 
 def test_dense_search_on_an_empty_document_returns_nothing(tmp_path):
-    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(16))
+    kb = KnowledgeBase(tmp_path / "kb", HashEmbedder(16), InMemoryVectorStore())
     kb.add_document(store.connect(tmp_path / "t.db"), OWNER_A, DOC_A, [])
     assert kb.dense_search(OWNER_A, DOC_A, "anything", 5) == []
