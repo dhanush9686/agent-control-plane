@@ -137,7 +137,13 @@ def test_body_sentences_with_a_number_in_the_middle_are_never_treated_as_headers
 def test_header_stripping_only_looks_at_page_edges():
     mid = "Table row: widget count total"  # repeats on every page but sits in the middle, so it is data not a footer
     pages = [
-        f"Top line {i} unique words here\nfiller one {i}\nfiller two {i}\nfiller three {i}\n{mid}\nfiller four {i}\nfiller five {i}\nfiller six {i}\nlast {i} unique end"
+        "\n".join(
+            [f"Top line {i} unique words here"]
+            + [f"filler {k} {i}" for k in range(3)]
+            + [mid]
+            + [f"filler {k} {i}" for k in range(3, 6)]
+            + [f"last {i} unique end"]
+        )
         for i in range(8)
     ]
     cleaned = strip_repeated_lines([PageText(i + 1, None, t) for i, t in enumerate(pages)])
