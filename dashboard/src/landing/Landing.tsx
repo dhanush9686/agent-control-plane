@@ -37,7 +37,7 @@ function Nav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-bg/70 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-        <Link to="/" className="flex items-center gap-2.5"><Logo /><span className="text-[15px] font-semibold tracking-tight">Control Plane</span></Link>
+        <Link to="/" className="flex items-center gap-2.5"><Logo size={32} /><span className="text-[15px] font-semibold tracking-tight">Control Plane</span></Link>
         <nav className="hidden items-center gap-7 text-sm text-muted md:flex" aria-label="Page sections">
           {[["#demo", "Demo"], ["#results", "Results"], ["#how", "How it works"], ["#guardrails", "Guardrails"], ["#limits", "Limits"]].map(([h, t]) => <a key={h} href={h} className="transition-colors hover:text-fg">{t}</a>)}
         </nav>

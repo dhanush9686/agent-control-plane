@@ -45,7 +45,7 @@ export default function Login() {
         <Link to="/" className="inline-flex w-fit items-center gap-2 text-sm text-muted transition-colors hover:text-fg"><ArrowLeft className="size-4" />Back to home</Link>
         <div className="m-auto w-full max-w-[360px] py-12">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
-            <Logo size={40} />
+            <Logo size={56} />
             <h1 className="mt-6 text-[28px] font-semibold tracking-tight">Welcome back</h1>
             <p className="mt-1.5 text-[15px] text-muted">Sign in to open the Control Plane dashboard.</p>
             <form onSubmit={submit} className="mt-8 space-y-4">
