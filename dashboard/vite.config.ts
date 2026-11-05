@@ -19,9 +19,15 @@ function devApi(): Plugin {
           res.end(JSON.stringify(body));
         };
         if (url.pathname === "/login" || url.pathname === "/logout") return send(200, { ok: true });
+        if (url.pathname === "/me") return send(200, { email: "dev@local", name: "Dev", role: "admin", mode: "user" });
+        if (url.pathname === "/simulate") return send(200, { id: "sim_0000000000000000" });
         if (url.pathname === "/data") {
           const file = url.searchParams.get("file") ?? "";
           if (!/^[a-z]+$/.test(file)) return send(404, { error: "No such data file." });
+          if (file === "sim") {
+            const fx = resolve(__dirname, "data", "sim.dev.json"); // optional, git-ignored
+            return send(200, existsSync(fx) ? JSON.parse(readFileSync(fx, "utf8")) : { via: "none", configured: false, queue: 0, jobs: [] });
+          }
           if (file === "events") {
             // Optional local fixture (data/events.dev.json, git-ignored, or the path in ACP_DEV_EVENTS) so the page can be developed without Redis.
             const fx = process.env.ACP_DEV_EVENTS ?? resolve(__dirname, "data", "events.dev.json");

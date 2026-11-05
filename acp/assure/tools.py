@@ -9,6 +9,7 @@ difference in outcomes comes from enforcement, not from instructions.
 from __future__ import annotations
 
 import hashlib
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -101,6 +102,7 @@ class ToolEvent:
     returned_data: bool = False  # real data went back to the model
     effect: Literal["none", "draft", "executed"] = "none"
     payload: dict[str, Any] = field(default_factory=dict)
+    ms: float = 0.0  # how long the policy decision and the ledger read took (measured, not estimated)
 
 
 class ToolRuntime:
@@ -126,7 +128,9 @@ class ToolRuntime:
 
     # ----- entry point
     def call(self, name: str, raw_args: dict[str, Any]) -> tuple[ToolEvent, dict[str, Any]]:
+        t0 = time.perf_counter()
         ev = self._dispatch(name, raw_args)
+        ev.ms = round((time.perf_counter() - t0) * 1000, 3)
         self.events.append(ev)
         if self.on_event:
             self.on_event(ev)

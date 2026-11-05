@@ -9,6 +9,7 @@ const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const LiveCheck = lazy(() => import("@/pages/LiveCheck"));
 const Events = lazy(() => import("@/pages/Events"));
 const Users = lazy(() => import("@/pages/Users"));
+const Simulator = lazy(() => import("@/pages/Simulator"));
 const Runs = lazy(() => import("@/pages/Runs"));
 const Benchmark = lazy(() => import("@/pages/Benchmark"));
 const AttackLab = lazy(() => import("@/pages/AttackLab"));
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="live/:source?" element={<LiveCheck />} />
           <Route path="events" element={<Events />} />
           <Route path="runs" element={<Runs />} />
+          <Route path="simulator" element={<Simulator />} />
           <Route path="users" element={<Users />} />
           <Route path="benchmark" element={<Benchmark />} />
           <Route path="attack-lab/:id?" element={<AttackLab />} />

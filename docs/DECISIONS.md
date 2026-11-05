@@ -168,3 +168,21 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 - **Abstention is scored.** Two of the eight scenarios ask something the notes cannot answer; passing means saying so.
 - **First results (Nova Lite, 8 x 3):** guarded 18/24, unguarded 16/24. The first single-repeat run scored 4/8 and 5/8; between the two I widened only the two abstention phrase lists (the model said "did not provide"), and I kept every other failure. The two persistent failures are model errors (no lookup, or the wrong table row). Finding: the numeric guard catches invented figures (2 unguarded runs vs 0 guarded) but cannot tell a real-but-wrong figure from a right one.
 
+## Hosted worker, CI gate and the guardrail simulator
+
+- **OIDC, not keys.** GitHub Actions assume one AWS role per run through short-lived tokens. The role trusts only this repository's `main`
+  branch and can only `bedrock:InvokeModel` on one model and its inference profile. A test fails if a workflow mentions an AWS key variable.
+- **Dispatch-driven, with a cheap backstop.** The website pings Actions (`repository_dispatch`) when something is queued; an hourly schedule
+  catches a missed ping and exits in seconds when the queue is empty (it reads Redis with the standard library before installing anything).
+  A five-minute cron would burn Actions minutes for nothing. The ping needs a token that can write repository contents, which is why it is optional.
+- **The gate reuses the benchmark's thresholds** (no guarded critical outcome, pass rate floor, no errors) per data source, and fails a partial sync.
+  CI also asserts the committed benchmark still passes them, so a regression cannot be committed silently. It does not call Bedrock on pull requests.
+- **The simulator queues; it does not run an agent in the website.** Same reason as live events: no AWS keys on Vercel, and a multi-step model run
+  can outlast a web request. The page shows queued, running, done.
+- **Presets are scripted attackers, custom payloads use the real model.** Presets are deterministic and free, so a policy change can be tested
+  before it ships; they say nothing about how often a model misbehaves (the benchmark does). Custom payloads are admin-only, length-limited,
+  masked, rate-limited and counted against the daily spend cap, because an open prompt box would be a chat product with a cost.
+- **The matrix is built from what happened** (tool events, answer guards, the ledger), never from the model's account. Decision times are
+  measured per tool call. It reports six real guardrails, not invented checks.
+- **Rejected:** reimplementing the policy engine in JavaScript to answer instantly (two engines drift), and running the Python agent in a Vercel function.
+

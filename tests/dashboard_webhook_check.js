@@ -133,5 +133,30 @@ const payload = (over = {}) => ({
   const none = await call(data, { method: "GET", headers: { cookie: good }, query: { file: "events" } });
   assert.strictEqual(none.code, 200); assert.strictEqual(none.body.configured, false);
 
+  // --- hosted worker ping: optional, throttled, and never able to break the webhook's answer
+  env(); // the previous section removed the store config
+  const ghCalls = [];
+  const withGithub = (impl) => { r = fakeRedis(); const base = global.fetch; global.fetch = async (url, opts) => (String(url).startsWith("https://api.github.com") ? impl(url, opts) : base(url, opts)); };
+  const fire = async (id) => call(handler, hook(raw, { "x-razorpay-signature": sign(raw), "x-razorpay-event-id": id }));
+  delete process.env.GITHUB_DISPATCH_TOKEN; delete process.env.GITHUB_REPO;
+  withGithub(async (u, o) => { ghCalls.push([u, o]); return { status: 204 }; });
+  assert.strictEqual((await fire("evt_P0")).body.worker_pinged, false); assert.strictEqual(ghCalls.length, 0, "no token, no ping");
+  process.env.GITHUB_DISPATCH_TOKEN = "ghp_test_token_value"; process.env.GITHUB_REPO = "owner/repo";
+  withGithub(async (u, o) => { ghCalls.push([u, o]); return { status: 204 }; });
+  const first = await fire("evt_P1");
+  assert.strictEqual(first.body.worker_pinged, true); assert.strictEqual(ghCalls.length, 1);
+  assert.strictEqual(ghCalls[0][0], "https://api.github.com/repos/owner/repo/dispatches");
+  assert.strictEqual(ghCalls[0][1].headers.Authorization, "Bearer ghp_test_token_value");
+  assert.deepStrictEqual(JSON.parse(ghCalls[0][1].body), { event_type: "acp-event" });
+  assert.strictEqual((await fire("evt_P2")).body.worker_pinged, false); assert.strictEqual(ghCalls.length, 1, "at most one ping a minute");
+  process.env.GITHUB_REPO = "not a repo!!";
+  withGithub(async () => { ghCalls.push(1); return { status: 204 }; });
+  const bad = ghCalls.length; await fire("evt_P3"); assert.strictEqual(ghCalls.length, bad, "a malformed repo name is never used");
+  process.env.GITHUB_REPO = "owner/repo";
+  withGithub(async () => { throw new Error("github down with ghp_test_token_value"); });
+  const down = await fire("evt_P4");
+  assert.strictEqual(down.code, 200); assert.strictEqual(down.body.queued, true); assert.ok(!JSON.stringify(down.body).includes("ghp_test"), "GitHub failing changes nothing for Razorpay");
+  delete process.env.GITHUB_DISPATCH_TOKEN; delete process.env.GITHUB_REPO;
+
   console.log("dashboard webhook: all checks passed");
 })().catch((e) => { console.error(e); process.exit(1); });

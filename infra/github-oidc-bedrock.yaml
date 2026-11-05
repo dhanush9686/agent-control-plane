@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Lets this repository's GitHub Actions call Amazon Bedrock with NO long-lived AWS keys. GitHub proves who is calling
+  with a short-lived OIDC token; AWS trades it for temporary credentials for ONE role that can only invoke one model.
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub user or organisation that owns the repository.
+    Default: dhanush9686
+  GitHubRepo:
+    Type: String
+    Default: agent-control-plane
+  Branch:
+    Type: String
+    Default: main
+    Description: Only workflow runs on this branch may assume the role (scheduled, dispatched and manual runs all use it).
+  ModelId:
+    Type: String
+    Default: amazon.nova-lite-v1:0
+    Description: The one Bedrock model the role may invoke.
+  ProfilePrefix:
+    Type: String
+    Default: apac
+    Description: Cross-region inference profile prefix used by the project (apac, us, eu ...).
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: Set to false if this AWS account already has the token.actions.githubusercontent.com provider.
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ""
+    Description: Only needed when CreateOidcProvider is false.
+
+Conditions:
+  MakeProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: acp-github-bedrock-invoke
+      Description: Assumed by GitHub Actions (OIDC) to invoke one Bedrock model. No other permissions.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [MakeProvider, !Ref GitHubOidcProvider, !Ref ExistingOidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${Branch}
+      Policies:
+        - PolicyName: invoke-one-model
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  # The regional inference profile the app calls (for example apac.amazon.nova-lite-v1:0) ...
+                  - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${ProfilePrefix}.${ModelId}
+                  # ... and the underlying model in whichever region the profile routes to.
+                  - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/${ModelId}
+
+Outputs:
+  RoleArn:
+    Description: Put this in the GitHub repository variable AWS_ROLE_ARN.
+    Value: !GetAtt WorkerRole.Arn

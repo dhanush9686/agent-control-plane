@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 import clsx from "clsx";
-import { Activity, BookOpenCheck, Radio, UserCog, Boxes, FlaskConical, Gauge, LayoutDashboard, ListChecks, LogOut, Menu, Moon, ScrollText, ShieldCheck, Sun, Swords, Workflow, X } from "lucide-react";
+import { Activity, BookOpenCheck, FlaskRound, Radio, UserCog, Boxes, FlaskConical, Gauge, LayoutDashboard, ListChecks, LogOut, Menu, Moon, ScrollText, ShieldCheck, Sun, Swords, Workflow, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useData } from "@/lib/data";
 import { MeProvider, useMe } from "@/lib/me";
@@ -19,6 +19,7 @@ const NAV = [
   { group: "Evidence", items: [
     { to: "/app/benchmark", label: "Benchmark", icon: Gauge },
     { to: "/app/attack-lab", label: "Attack lab", icon: Swords },
+    { to: "/app/simulator", label: "Guardrail simulator", icon: FlaskRound },
     { to: "/app/audit", label: "Audit trail", icon: ScrollText },
   ] },
   { group: "Reference", items: [

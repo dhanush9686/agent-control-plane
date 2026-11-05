@@ -470,3 +470,13 @@ is a different product. Likely trap: claiming it is verified legal content. It i
 **4. Things I would say unprompted.** The benchmark numbers come from the core suite without the rules tool; the live-event counts are a
 handful of checks; and "real-time" means near real time (seconds to a minute, polling).
 
+**5. Hosted worker and CI gate.** GitHub Actions runs the worker (pinged when something is queued, hourly backstop) and a weekly sync with a
+regression gate. AWS access is OIDC into a role limited to one Bedrock model on `main` only: *"Why no access keys?"* A leaked key works
+forever from anywhere; an OIDC token expires in minutes and is bound to this repo and branch. Honest limits: the audit database restarts if the
+Actions cache is evicted, branch protection is a GitHub setting I do not control, and the dispatch token can write repository contents.
+
+**6. Guardrail simulator.** An SRE red-teaming page that fires an attack at the real policy engine, guards on and off, and shows an interception
+matrix with measured decision times. *"Isn't that just a chat box?"* No: presets are fixed scripts, custom payloads are admin-only, masked, rate
+limited and cost-capped, and the output is telemetry, not a reply. *"Does the preset result prove the model is safe?"* No. A scripted attacker shows
+what the rules do when the model misbehaves; how often a model misbehaves is what the benchmark measures.
+

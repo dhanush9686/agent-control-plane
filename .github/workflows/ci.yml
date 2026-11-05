@@ -13,4 +13,19 @@ jobs:
       - run: pip install -r requirements-ci.txt
       - run: ruff check .
       - run: ruff format --check .
-      - run: python -m pytest -q   # offline: fake LLM, live tests are skipped
+      - run: python -m pytest -q   # offline: fake LLM, no AWS, live tests are skipped; includes the Node auth/webhook checks
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build

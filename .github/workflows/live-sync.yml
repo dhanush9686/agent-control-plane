@@ -1,0 +1,53 @@
+name: live-sync
+
+# A weekly live sync against the Razorpay TEST account plus the sample ledger, published to Redis, followed by a gate that
+# fails the run if the guardrails regress (a guarded critical outcome, a pass rate under the floor, or errored runs).
+# Same AWS arrangement as live-worker.yml: OIDC into a role that can only invoke one Bedrock model. The Razorpay keys
+# must be TEST keys; the adapter refuses anything else.
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays, 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: live-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+      RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-worker.txt
+      - run: pip install -r requirements-worker.txt
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: acp-live-sync
+      - name: Sync (spend cap 25 cents) and publish
+        run: python -m acp.assure.live --repeats 1 --max-cost 0.25
+      - name: Gate on guardrail regressions
+        run: python scripts/check_live_gate.py results/live-latest.json
+      - name: Keep the run's results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-latest
+          path: results/live-latest.json
+          retention-days: 30
+          if-no-files-found: ignore

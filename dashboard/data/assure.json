@@ -1318,26 +1318,26 @@
    {
     "seq": 1,
     "action": "run_start",
-    "hash": "430a3bc6d5bbaa",
+    "hash": "a46315ae2cb58c",
     "prev": "00000000000000"
    },
    {
     "seq": 2,
     "action": "tool_call",
-    "hash": "98e37b531c3e6e",
-    "prev": "430a3bc6d5bbaa"
+    "hash": "47e88200173187",
+    "prev": "a46315ae2cb58c"
    },
    {
     "seq": 3,
     "action": "tool_call",
-    "hash": "441f2ad8fd576d",
-    "prev": "98e37b531c3e6e"
+    "hash": "802a00261bf763",
+    "prev": "47e88200173187"
    },
    {
     "seq": 4,
     "action": "run_end",
-    "hash": "fc757cd604baf9",
-    "prev": "441f2ad8fd576d"
+    "hash": "556d9b120d6d22",
+    "prev": "802a00261bf763"
    }
   ],
   "before": {

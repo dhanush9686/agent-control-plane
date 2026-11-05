@@ -18,8 +18,8 @@ function writeConfig() {
   return url && url.startsWith("https://") && token ? { url: url.replace(/\/$/, ""), token } : null;
 }
 
-async function pipeline(cfg, commands) {
-  for (const [op] of commands) if (!WRITE_OPS.has(op)) throw new Error("command not allowed: " + op);
+async function pipeline(cfg, commands, allowed = WRITE_OPS) {
+  for (const [op] of commands) if (!allowed.has(op)) throw new Error("command not allowed: " + op);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
@@ -35,6 +35,28 @@ async function pipeline(cfg, commands) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Ask GitHub Actions to start the hosted worker (see .github/workflows/live-worker.yml). Optional: with no token or repo
+// configured nothing happens and the hourly schedule is the backstop. At most one ping a minute, and a failure here never
+// affects the webhook's answer to Razorpay.
+async function dispatchWorker(cfg, eventType) {
+  const token = process.env.GITHUB_DISPATCH_TOKEN, repo = process.env.GITHUB_REPO;
+  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(repo || "")) return false;
+  try {
+    const [first] = await pipeline(cfg, [["SET", PREFIX + "dispatch", "1", "NX", "EX", 60]]);
+    if (first !== "OK") return false;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const r = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+        method: "POST", signal: ctl.signal,
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" },
+        body: JSON.stringify({ event_type: eventType }),
+      });
+      return r.status === 204;
+    } finally { clearTimeout(timer); }
+  } catch (_) { return false; }
 }
 
 function verifySignature(raw, signature, secret) {
@@ -101,7 +123,8 @@ async function ingest(raw, headers) {
     ["LPUSH", EVENTS, id], ["LTRIM", EVENTS, 0, EVENTS_KEPT - 1],
     ["LPUSH", QUEUE, id], ["EXPIRE", QUEUE, EVENT_TTL_S],
   ]);
-  return { code: 200, body: { queued: true, id } };
+  const pinged = await dispatchWorker(cfg, "acp-event");
+  return { code: 200, body: { queued: true, id, worker_pinged: pinged } };
 }
 
-module.exports = { ingest, verifySignature, slimPayment, eventId, writeConfig, WRITE_OPS };
+module.exports = { ingest, verifySignature, slimPayment, eventId, writeConfig, pipeline, dispatchWorker, WRITE_OPS };

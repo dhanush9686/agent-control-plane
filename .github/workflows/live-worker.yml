@@ -1,0 +1,62 @@
+name: live-worker
+
+# The hosted worker: handles queued Razorpay webhook events and simulator jobs without anyone's laptop being on.
+#  * repository_dispatch: the website pings this when an event or job is queued (needs GITHUB_DISPATCH_TOKEN on Vercel).
+#  * schedule: an hourly backstop, in case a ping was missed. It exits in seconds when the queue is empty.
+#  * workflow_dispatch: run it by hand.
+# AWS access is by OIDC into a role that can only invoke one Bedrock model (infra/github-oidc-bedrock.yaml). There are
+# no AWS keys in this repository. Needs repository secrets UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN and
+# repository variables AWS_ROLE_ARN and AWS_REGION. See docs/HOSTED_WORKER.md.
+on:
+  repository_dispatch:
+    types: [acp-event, acp-sim]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+# One worker at a time: two would pop different items fine, but the audit database is a single file.
+concurrency:
+  group: live-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # only to ask GitHub for the OIDC token
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is anything waiting?
+        id: queue
+        run: python scripts/queue_depth.py
+      - uses: actions/setup-python@v5
+        if: steps.queue.outputs.pending != '0'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-worker.txt
+      - if: steps.queue.outputs.pending != '0'
+        run: pip install -r requirements-worker.txt
+      - if: steps.queue.outputs.pending != '0'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: acp-live-worker
+      # The audit chain is a SQLite file. A runner starts empty, so restore the last copy and save the new one. The cache
+      # can be evicted (after 7 idle days); if so the chain simply starts again, which is noted in docs/HOSTED_WORKER.md.
+      - if: steps.queue.outputs.pending != '0'
+        uses: actions/cache@v4
+        with:
+          path: results/ingest-audit.db
+          key: ingest-audit-${{ github.run_id }}
+          restore-keys: ingest-audit-
+      - name: Handle the queue
+        if: steps.queue.outputs.pending != '0'
+        run: python -m acp.assure.ingest --once --max-daily-usd 0.25

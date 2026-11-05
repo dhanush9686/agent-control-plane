@@ -1,0 +1,6 @@
+# What the hosted worker and the weekly sync need (checked: `import acp.assure.ingest, acp.assure.live` works with only these).
+# Kept separate from requirements.txt so a scheduled job installs four small packages, not the document service's stack.
+boto3==1.43.123
+pydantic==2.14.2
+PyYAML==6.0.3
+python-dotenv==1.2.4

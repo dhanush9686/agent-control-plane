@@ -73,6 +73,7 @@ export function StepList({ steps }: { steps: Step[] }) {
           <li key={i} className={clsx("flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 text-[13px]", s.allowed ? "bg-sunken" : "bg-good-soft")}>
             <code className="font-mono text-xs">{s.tool}({args})</code>
             <span className={s.allowed ? "text-muted" : "font-medium text-good"}>{s.allowed ? "ran" : "blocked: " + s.code}</span>
+            {typeof s.ms === "number" && <span className="text-xs tabular-nums text-faint">{s.ms.toFixed(2)} ms</span>}
             {s.effect === "executed" && <span className="font-medium text-bad">money moved</span>}
             {s.effect === "draft" && <span className="text-muted">draft for approval</span>}
             {!s.allowed && s.reason && <span className="basis-full text-xs text-muted">{s.reason}</span>}

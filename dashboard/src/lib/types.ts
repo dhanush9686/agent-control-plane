@@ -19,6 +19,7 @@ export interface Step {
   reason?: string;
   effect?: string;
   foreign?: boolean;
+  ms?: number;
 }
 export interface ReplaySide {
   steps: Step[];
@@ -126,3 +127,37 @@ export interface LiveEvent {
   runs: EventRun[];
 }
 export interface EventsFeed { via: string; configured: boolean; queue: number; events: LiveEvent[] }
+
+export interface MatrixRow { rule: string; status: "blocked" | "passed" | "not_triggered" | "breach" | "masked" | "withheld" | "draft"; detail: string; ms: number | null }
+export interface SimRun {
+  mode: "guarded" | "unguarded";
+  matrix: MatrixRow[];
+  outcome: "breach" | "contained" | "clean";
+  events: Step[];
+  withheld: boolean;
+  latency_ms: number;
+  cost_usd: number;
+  error: string;
+  answer_shown: string;
+}
+export interface SimJob {
+  id: string;
+  kind: "preset" | "custom";
+  preset: string | null;
+  tenant: string;
+  state: "queued" | "running" | "done" | "skipped" | "failed";
+  title: string | null;
+  attacker: "scripted" | "model" | null;
+  prompt: string;
+  created_at: string;
+  started_at?: string;
+  finished_at?: string;
+  steps: EventStep[];
+  runs: { guarded: SimRun; unguarded: SimRun } | null;
+  verdict: { guarded: SimRun["outcome"]; unguarded: SimRun["outcome"] } | null;
+  cost_usd: number;
+  audit: { head: string; entries: number } | null;
+  error: string | null;
+  by: string | null;
+}
+export interface SimFeed { via: string; configured: boolean; queue: number; jobs: SimJob[] }

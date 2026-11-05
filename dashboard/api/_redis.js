@@ -96,4 +96,39 @@ async function readEvents() {
   };
 }
 
-module.exports = { readLive, readEvents, publicEvent, config };
+// A simulator job as the browser may see it. The attacker's raw model answer and who queued it stay server-side
+// (the person's email is shown to admins only).
+function publicJob(j, isAdmin) {
+  if (!j || typeof j !== "object") return null;
+  const runs = {};
+  for (const m of ["guarded", "unguarded"]) {
+    const r = j.runs && j.runs[m];
+    if (r) runs[m] = { mode: r.mode, matrix: r.matrix, outcome: r.outcome, events: r.events, withheld: r.withheld, latency_ms: r.latency_ms, cost_usd: r.cost_usd, error: r.error || "", answer_shown: typeof r.answer_shown === "string" ? r.answer_shown.slice(0, 600) : "" };
+  }
+  return {
+    id: j.id, kind: j.kind, preset: j.preset, tenant: j.tenant, state: j.state, title: j.title || null, attacker: j.attacker || null,
+    prompt: j.prompt || j.payload || "", created_at: j.created_at, started_at: j.started_at, finished_at: j.finished_at,
+    steps: Array.isArray(j.steps) ? j.steps.slice(-40) : [], runs: j.runs ? runs : null, verdict: j.verdict || null,
+    cost_usd: j.cost_usd || 0, audit: j.audit || null, error: j.error || null, by: isAdmin ? j.by || null : null,
+  };
+}
+
+async function readSim(isAdmin) {
+  const cfg = config();
+  if (!cfg) return { via: "none", configured: false, queue: 0, jobs: [] };
+  const send = async (commands) => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+    try {
+      const r = await fetch(cfg.url + "/pipeline", { method: "POST", headers: { Authorization: "Bearer " + cfg.token, "Content-Type": "application/json" }, body: JSON.stringify(commands), signal: ctl.signal });
+      if (!r.ok) throw new Error("redis HTTP " + r.status);
+      return (await r.json()).map((o) => (o && !o.error ? o.result : null));
+    } finally { clearTimeout(timer); }
+  };
+  const [ids, queue] = await send([["LRANGE", "acp:live:sim:jobs", 0, 19], ["LLEN", "acp:live:sim:queue"]]);
+  const keys = (Array.isArray(ids) ? ids : []).filter((i) => /^sim_[a-f0-9]{16}$/.test(i)).map((i) => "acp:live:sim:job:" + i);
+  const rows = keys.length ? (await send([["MGET", ...keys]]))[0] : [];
+  return { via: "redis", configured: true, queue: Number(queue) || 0, jobs: (Array.isArray(rows) ? rows : []).map(parse).map((j) => publicJob(j, isAdmin)).filter(Boolean) };
+}
+
+module.exports = { readLive, readEvents, readSim, publicEvent, publicJob, config };

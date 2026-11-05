@@ -82,12 +82,13 @@ def ledger_for_event(payment: dict[str, Any]) -> tuple[RazorpayTestLedger, str] 
 class EventRecord:
     """One event's record in Redis. Every change is written straight away, redacted, with the expiry refreshed."""
 
-    def __init__(self, client: UpstashClient, event_id: str, data: dict[str, Any]) -> None:
+    def __init__(self, client: UpstashClient, event_id: str, data: dict[str, Any], key: str | None = None) -> None:
         self.client, self.id, self.data = client, event_id, data
+        self.key = key or key_event(event_id)
 
     def save(self) -> None:
         body = json.dumps(redact_deep(self.data), ensure_ascii=False)
-        self.client.pipeline([["SET", key_event(self.id), body, "EX", EVENT_TTL_S]])
+        self.client.pipeline([["SET", self.key, body, "EX", EVENT_TTL_S]])
 
     def step(self, text: str, tone: str = "neutral", **extra: Any) -> None:
         self.data.setdefault("steps", []).append({"t": _now(), "text": text, "tone": tone, **extra})
@@ -208,25 +209,32 @@ def drain(
     client: UpstashClient, llm: Any, settings: Any, audit: AuditLog | None, *, once: bool, poll_s: float,
     daily_cap_usd: float, log: Callable[[str], None] = print, sleep: Callable[[float], None] = time.sleep,
 ) -> int:  # fmt: skip
-    """Process the queue. With `once`, stop when it is empty; otherwise keep polling."""
+    """Process both queues (webhook events first, then simulator jobs). With `once`, stop when both are empty."""
+    from acp.assure.simulate import KEY_SIM_QUEUE, process_job
+
     handled = 0
     while True:
         try:
             event_id = client.pipeline([["RPOP", KEY_QUEUE]])[0]
+            job_id = None if event_id else client.pipeline([["RPOP", KEY_SIM_QUEUE]])[0]
         except UpstashError as e:
             log(f"Queue read failed: {e}")
             if once:
                 return handled
             sleep(max(poll_s, 5))
             continue
-        if not event_id:
+        if not event_id and not job_id:
             if once:
                 return handled
             sleep(poll_s)
             continue
-        state = process_event(client, llm, settings, str(event_id), audit, daily_cap_usd=daily_cap_usd, log=log)
+        if event_id:
+            state = process_event(client, llm, settings, str(event_id), audit, daily_cap_usd=daily_cap_usd, log=log)
+            log(f"{event_id}: {state}")
+        else:
+            state = process_job(client, lambda: llm, settings, str(job_id), audit, daily_cap_usd=daily_cap_usd, log=log)
+            log(f"simulator job {job_id}: {state}")
         handled += 1
-        log(f"{event_id}: {state}")
 
 
 def main(argv: list[str] | None = None) -> int:
