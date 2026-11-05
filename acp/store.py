@@ -155,6 +155,10 @@ MIGRATIONS[3] = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_cache_doc ON answer_cache(doc_id)",
 ]
+MIGRATIONS[4] = [
+    # Money spent per model per day (Bedrock bills per token), used by the daily spend cap.
+    "ALTER TABLE model_usage ADD COLUMN cost_usd REAL NOT NULL DEFAULT 0",
+]
 LATEST = max(MIGRATIONS)
 
 

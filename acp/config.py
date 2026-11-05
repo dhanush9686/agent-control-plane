@@ -15,15 +15,82 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# $ per 1 million tokens: (input, output). These are ESTIMATES for cost
-# tracking, not a billing record -- check https://groq.com/pricing and override
-# with the ACP_PRICES_JSON env var (path to a JSON file of the same shape).
-# Groq's free tier means real spend is $0; the cost column is "what this would cost at paid rates".
+# $ per 1 million tokens: (input, output). These are ESTIMATES for cost tracking and for the daily spend guard, not a
+# billing record -- AWS prices change and differ by region: check https://aws.amazon.com/bedrock/pricing/ and override
+# with the ACP_PRICES_JSON env var (path to a JSON file {"model-id": [input, output]}). Keys are matched after removing
+# the regional prefix ("apac.", "us.", "eu.", "global."), so one entry covers every region's inference profile.
+# A model missing from this table is costed at $0 AND logged, so an unknown price can never silently look free.
 DEFAULT_PRICES: dict[str, tuple[float, float]] = {
+    "amazon.nova-micro-v1:0": (0.035, 0.14),
+    "amazon.nova-lite-v1:0": (0.06, 0.24),
+    "amazon.nova-pro-v1:0": (0.80, 3.20),
+    "anthropic.claude-haiku-4-5-20251001-v1:0": (1.00, 5.00),
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": (3.00, 15.00),
+    "amazon.titan-embed-text-v2:0": (0.02, 0.0),  # embeddings bill input tokens only
+    # Groq (free tier; kept so older eval runs still price correctly)
     "openai/gpt-oss-120b": (0.15, 0.75),
     "openai/gpt-oss-20b": (0.075, 0.30),
     "qwen/qwen3.8-27b": (0.29, 0.59),
 }
+_REGION_PREFIXES = ("apac.", "us.", "eu.", "us-gov.", "global.", "jp.", "au.", "ca.", "in.")
+
+
+def price_key(model: str) -> str:
+    """'apac.amazon.nova-micro-v1:0' -> 'amazon.nova-micro-v1:0' (inference-profile prefix removed)."""
+    for pre in _REGION_PREFIXES:
+        if model.startswith(pre):
+            return model[len(pre) :]
+    return model
+
+
+def bedrock_profile_prefix(region: str | None) -> str:
+    """Which inference-profile prefix serves a region: ap-south-1 -> 'apac', us-east-1 -> 'us', eu-west-1 -> 'eu'."""
+    r = (region or "us-east-1").lower()
+    if r.startswith("ap-"):
+        return "apac"
+    if r.startswith("eu-"):
+        return "eu"
+    return "us"
+
+
+def _aws_region() -> str | None:
+    env = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+    if env:
+        return env
+    try:
+        import boto3
+
+        return boto3.Session().region_name
+    except Exception:  # noqa: BLE001 - boto3 missing or misconfigured: leave unset, the client will explain
+        return None
+
+
+def _bedrock_models() -> tuple[str, str]:
+    """(cheapest, next cheapest) text models available through this region's inference profiles."""
+    pre = bedrock_profile_prefix(_aws_region())
+    return f"{pre}.amazon.nova-micro-v1:0", f"{pre}.amazon.nova-lite-v1:0"
+
+
+def _provider() -> str:
+    return os.environ.get("ACP_LLM_PROVIDER", "bedrock").strip().lower()
+
+
+def _default_model() -> str:
+    return os.environ.get("ACP_MODEL") or (_bedrock_models()[0] if _provider() == "bedrock" else "openai/gpt-oss-120b")
+
+
+def _default_judge() -> str:
+    # The grader should not be the same model that answers (less self-preference); Nova Lite is the next cheapest.
+    return os.environ.get("ACP_JUDGE_MODEL") or (
+        _bedrock_models()[1] if _provider() == "bedrock" else "qwen/qwen3.8-27b"
+    )
+
+
+def _chain(env: str, bedrock: tuple[str, ...], groq: tuple[str, ...]) -> tuple[str, ...]:
+    raw = os.environ.get(env)
+    if raw:
+        return tuple(m.strip() for m in raw.split(",") if m.strip())
+    return bedrock if _provider() == "bedrock" else groq
 
 
 def load_prices() -> dict[str, tuple[float, float]]:
@@ -50,12 +117,25 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    model: str = "openai/gpt-oss-120b"
+    llm_provider: str = field(default_factory=_provider)  # "bedrock" (default) or "groq"
+    embedding_provider: str = field(default_factory=lambda: os.environ.get("ACP_EMBEDDING_PROVIDER", "bedrock").lower())
+    aws_region: str | None = field(default_factory=_aws_region)
+    model: str = field(default_factory=_default_model)
     temperature: float = 0.0
     # Grader for evals: a DIFFERENT model family than the answerer to reduce self-preference bias.
     # Override with ACP_JUDGE_MODEL, or pass --judge-model same to grade with the answering model.
-    judge_model: str = field(default_factory=lambda: os.environ.get("ACP_JUDGE_MODEL", "qwen/qwen3.8-27b"))
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    judge_model: str = field(default_factory=_default_judge)
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # only for the legacy local film-corpus index
+    bedrock_embed_model: str = field(
+        default_factory=lambda: os.environ.get("ACP_EMBED_MODEL", "amazon.titan-embed-text-v2:0")
+    )
+    embed_dimensions: int = field(
+        default_factory=lambda: _env_int("ACP_EMBED_DIMENSIONS", 1024)
+    )  # Titan v2: 256|512|1024
+    max_output_tokens: int = field(default_factory=lambda: _env_int("ACP_MAX_OUTPUT_TOKENS", 1024))
+    llm_deadline_s: float = field(
+        default_factory=lambda: _env_float("ACP_LLM_DEADLINE_S", 60.0)
+    )  # per call, all retries
     top_k: int = 3  # chunks fetched per search
     max_attempts: int = 2  # retrieval attempts before we stop looping
     llm_timeout_s: float = field(
@@ -92,19 +172,24 @@ class Settings:
     rate_per_min: int = field(default_factory=lambda: _env_int("ACP_RATE_PER_MIN", 5))  # asks per user per minute
     daily_asks: int = field(default_factory=lambda: _env_int("ACP_DAILY_ASKS", 25))  # per user per UTC day
     daily_uploads: int = field(default_factory=lambda: _env_int("ACP_DAILY_UPLOADS", 3))
-    model_tpm: int = field(default_factory=lambda: _env_int("ACP_MODEL_TPM", 6500))  # headroom under Groq's 8,000
-    model_daily_tokens: int = field(default_factory=lambda: _env_int("ACP_MODEL_DAILY_TOKENS", 180_000))
+    # Shared guard rails, per model: tokens per minute and per day. Bedrock bills per token, so these (plus the USD cap
+    # below) stop a runaway client from spending unbounded money. Defaults are generous but finite.
+    model_tpm: int = field(default_factory=lambda: _env_int("ACP_MODEL_TPM", 150_000))
+    model_daily_tokens: int = field(default_factory=lambda: _env_int("ACP_MODEL_DAILY_TOKENS", 5_000_000))
+    daily_budget_usd: float = field(
+        default_factory=lambda: _env_float("ACP_DAILY_BUDGET_USD", 1.00)
+    )  # all models + embeddings
     context_token_budget: int = field(default_factory=lambda: _env_int("ACP_CONTEXT_TOKENS", 3500))
     # Which models answer which step, in fallback order (comma separated env vars). Cheap/fast model judges,
     # the strongest synthesizes; when one is out of free-tier budget the next is used.
     judge_models: tuple[str, ...] = field(
-        default_factory=lambda: tuple(
-            m.strip() for m in os.environ.get("ACP_JUDGE_MODELS", "openai/gpt-oss-20b,qwen/qwen3.8-27b").split(",")
+        default_factory=lambda: _chain(
+            "ACP_JUDGE_MODELS", _bedrock_models(), ("openai/gpt-oss-20b", "qwen/qwen3.8-27b")
         )
     )
     synth_models: tuple[str, ...] = field(
-        default_factory=lambda: tuple(
-            m.strip() for m in os.environ.get("ACP_SYNTH_MODELS", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",")
+        default_factory=lambda: _chain(
+            "ACP_SYNTH_MODELS", _bedrock_models(), ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
         )
     )
     rerank: bool = field(default_factory=lambda: _env_bool("ACP_RERANK", False))
@@ -112,7 +197,8 @@ class Settings:
 
     def cost_usd(self, input_tokens: int, output_tokens: int, model: str | None = None) -> float:
         """Estimated dollars for one LLM call, from the price table (for `model`, default the main model)."""
-        p_in, p_out = self.prices.get(model or self.model, (0.0, 0.0))
+        name = model or self.model
+        p_in, p_out = self.prices.get(price_key(name)) or self.prices.get(name) or (0.0, 0.0)
         return (input_tokens * p_in + output_tokens * p_out) / 1_000_000
 
 

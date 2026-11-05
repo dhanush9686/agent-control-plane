@@ -103,7 +103,8 @@ class PineconeStore:
             raise VectorStoreError("PINECONE_API_KEY is not set. Add it to your .env file.")
         from pinecone import Pinecone, ServerlessSpec
 
-        name = index_name or os.environ.get("PINECONE_INDEX", INDEX_NAME_DEFAULT)
+        # One Pinecone index holds one vector size, so the default name carries it: acp-docs-1024, acp-docs-384, ...
+        name = index_name or os.environ.get("PINECONE_INDEX") or f"{INDEX_NAME_DEFAULT}-{dimension}"
         pc = Pinecone(api_key=key)
         try:
             if not pc.has_index(name):

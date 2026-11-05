@@ -19,7 +19,18 @@ class EmptyIndexError(ACPError):
 
 
 class LLMUnavailableError(ACPError):
-    """The LLM provider kept failing after all retries (rate limit, timeout, outage)."""
+    """The LLM provider kept failing after all retries (rate limit, timeout, outage).
+
+    `retry_after` is the provider's own estimate (seconds) when it gave one, so callers can pass it on.
+    """
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class ModelAccessError(LLMUnavailableError):
+    """The AWS account/region cannot use this model. A subclass of LLMUnavailableError so a fallback chain moves on."""
 
 
 class RateLimited(ACPError):

@@ -1,4 +1,4 @@
-"""Production wiring: build the real service (Groq models, Pinecone vectors, MiniLM embeddings).
+"""Production wiring: build the real service (Amazon Bedrock models + embeddings, Pinecone vectors).
 
 Run:  uvicorn acp.server.main:create_production_app --factory --port 8000      (or: make serve-api)
 """
@@ -14,11 +14,11 @@ from dotenv import load_dotenv
 
 from acp import store
 from acp.config import ROOT, Settings, get_settings
-from acp.embeddings import MiniLMEmbedder
+from acp.embeddings import make_embedder
 from acp.ingest.pipeline import IngestDeps
 from acp.ingest.worker import JobRunner
 from acp.kb import KnowledgeBase
-from acp.llm import LLM, GroqLLM
+from acp.llm import LLM, get_llm
 from acp.ratelimit import BudgetedLLM, DailyQuota, ModelBudget, SlidingWindow
 from acp.server.app import AppDeps, create_app
 from acp.tracing import Tracing
@@ -30,20 +30,24 @@ log = logging.getLogger("acp.server")
 def build_deps(settings: Settings | None = None) -> AppDeps:
     load_dotenv(ROOT / ".env")  # keys stay in the environment; nothing here prints them
     s = settings or get_settings()
-    embedder = MiniLMEmbedder.shared(s.embedding_model)
-    vstore = PineconeStore.connect(embedder.dim)
-    kb = KnowledgeBase(s.kb_root, embedder, vstore)
-    runner = JobRunner(IngestDeps(s, kb))
 
     def conn_factory():  # noqa: ANN202
         return store.connect(s.db_path)
 
-    budget = ModelBudget(conn_factory, s.model_tpm, s.model_daily_tokens)
+    budget = ModelBudget(conn_factory, s.model_tpm, s.model_daily_tokens, usd_cap=s.daily_budget_usd)
+
+    def count_embedding_spend(model: str, tokens: int) -> None:
+        budget.record(model, tokens, s.cost_usd(tokens, 0, model))  # embeddings bill input tokens only
+
+    embedder = make_embedder(s, on_usage=count_embedding_spend)
+    vstore = PineconeStore.connect(embedder.dim)
+    kb = KnowledgeBase(s.kb_root, embedder, vstore)
+    runner = JobRunner(IngestDeps(s, kb))
     llms: dict[str, LLM] = {}
 
     def llm_for_model(model: str) -> LLM:
         if model not in llms:  # one client per model, reused across requests
-            llms[model] = GroqLLM(replace(s, model=model))
+            llms[model] = get_llm(replace(s, model=model))
         return llms[model]
 
     chains: dict[str, tuple[str, ...]] = {
@@ -55,7 +59,7 @@ def build_deps(settings: Settings | None = None) -> AppDeps:
         settings=s,
         kb=kb,
         runner=runner,
-        llm_for_user=lambda: BudgetedLLM(chains, s.synth_models, llm_for_model, budget),
+        llm_for_user=lambda: BudgetedLLM(chains, s.synth_models, llm_for_model, budget, s.cost_usd),
         ask_limiter=SlidingWindow(s.rate_per_min),
         auth_fail_limiter=SlidingWindow(10),
         quota=DailyQuota(conn_factory),

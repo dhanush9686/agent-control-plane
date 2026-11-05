@@ -131,7 +131,9 @@ class ModelBudget:
         daily_tokens: int,
         clock: Clock = time.monotonic,
         utc_now: Callable[[], datetime] | None = None,
+        usd_cap: float | None = None,
     ) -> None:
+        self.usd_cap = usd_cap  # None = no dollar cap (the free-tier Groq setup); otherwise a hard daily limit
         self._conn_factory, self.tpm, self.daily = conn_factory, tpm, daily_tokens
         self._clock = clock
         self._utc_now = utc_now or (lambda: datetime.now(UTC))
@@ -148,6 +150,17 @@ class ModelBudget:
             conn.close()
         return int(row["tokens"]) if row else 0
 
+    def spent_today_usd(self) -> float:
+        """Dollars spent today across every model and the embedder (estimated from token counts and the price table)."""
+        conn = self._conn_factory()
+        try:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(cost_usd), 0) AS usd FROM model_usage WHERE day=?", (_utc_day(self._utc_now()),)
+            ).fetchone()
+        finally:
+            conn.close()
+        return float(row["usd"])
+
     def _refill(self, model: str) -> float:
         now = self._clock()
         tokens, last = self._bucket.get(model, (float(self.tpm), now))
@@ -160,6 +173,10 @@ class ModelBudget:
         est = min(est_tokens, self.tpm)  # a request bigger than the whole bucket would otherwise never be admitted
         if self.used_today(model) + est > self.daily:
             return _seconds_to_midnight(self._utc_now())
+        if self.usd_cap is not None and self.spent_today_usd() >= self.usd_cap:
+            return _seconds_to_midnight(
+                self._utc_now()
+            )  # the daily spend cap is reached: stop, whatever the tokens say
         with self._lock:
             available = self._refill(model)
             if available < est:
@@ -167,8 +184,8 @@ class ModelBudget:
             self._bucket[model] = (available - est, self._clock())
             return 0.0
 
-    def settle(self, model: str, reserved: int, actual: int) -> None:
-        """Record real usage: refund (or charge) the difference in the minute bucket, add to the daily total."""
+    def settle(self, model: str, reserved: int, actual: int, cost_usd: float = 0.0) -> None:
+        """Record real usage: refund (or charge) the difference in the minute bucket, add to the daily totals."""
         with self._lock:
             available = self._refill(model)
             self._bucket[model] = (
@@ -179,9 +196,24 @@ class ModelBudget:
         try:
             with conn:
                 conn.execute(
-                    "INSERT INTO model_usage (model, day, tokens) VALUES (?, ?, ?) "
-                    "ON CONFLICT(model, day) DO UPDATE SET tokens = tokens + excluded.tokens",
-                    (model, _utc_day(self._utc_now()), max(0, actual)),
+                    "INSERT INTO model_usage (model, day, tokens, cost_usd) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(model, day) DO UPDATE SET tokens = tokens + excluded.tokens, "
+                    "cost_usd = cost_usd + excluded.cost_usd",
+                    (model, _utc_day(self._utc_now()), max(0, actual), max(0.0, cost_usd)),
+                )
+        finally:
+            conn.close()
+
+    def record(self, model: str, tokens: int, cost_usd: float) -> None:
+        """Count spend that did not go through reserve() (e.g. embeddings during ingestion): totals only, no bucket."""
+        conn = self._conn_factory()
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT INTO model_usage (model, day, tokens, cost_usd) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(model, day) DO UPDATE SET tokens = tokens + excluded.tokens, "
+                    "cost_usd = cost_usd + excluded.cost_usd",
+                    (model, _utc_day(self._utc_now()), max(0, tokens), max(0.0, cost_usd)),
                 )
         finally:
             conn.close()
@@ -207,8 +239,10 @@ class BudgetedLLM:
         default_chain: tuple[str, ...],
         factory: Callable[[str], LLM],
         budget: ModelBudget,
+        cost_fn: Callable[[int, int, str], float] | None = None,  # (input_tokens, output_tokens, model) -> USD
     ) -> None:
         self._chains, self._default, self._factory, self._budget = chains, default_chain, factory, budget
+        self._cost_fn = cost_fn
         self.model = default_chain[0]
 
     def _run(self, purpose: str, prompt: str, call: Callable[[LLM], LLMResult]) -> LLMResult:
@@ -229,12 +263,14 @@ class BudgetedLLM:
             except BaseException:
                 self._budget.refund(model, est)
                 raise
-            self._budget.settle(model, est, res.input_tokens + res.output_tokens)
             res.model = res.model or model
+            cost = self._cost_fn(res.input_tokens, res.output_tokens, res.model) if self._cost_fn else 0.0
+            self._budget.settle(model, est, res.input_tokens + res.output_tokens, cost)
             return res
         if waits:
             raise RateLimited(
-                "The shared AI budget is used up for the moment. Please try again shortly.",
+                "The shared AI budget is used up for now (per-minute, daily token or daily spend limit). "
+                "Please try again shortly.",
                 min(waits),
                 "model_budget",
             )
