@@ -11,6 +11,17 @@ Parameters:
   GitHubRepo:
     Type: String
     Default: agent-control-plane
+  GitHubOwnerId:
+    Type: String
+    Default: ""
+    Description: >-
+      Numeric id of the owner (gh api repos/OWNER/REPO --jq .owner.id). Needed when GitHub issues IMMUTABLE subject claims,
+      which it does when the repository's OIDC setting use_immutable_subject is true (then tokens read
+      repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:...). Set both ids or neither.
+  GitHubRepoId:
+    Type: String
+    Default: ""
+    Description: Numeric id of the repository (gh api repos/OWNER/REPO --jq .id). See GitHubOwnerId.
   Branch:
     Type: String
     Default: main
@@ -35,6 +46,7 @@ Parameters:
 
 Conditions:
   MakeProvider: !Equals [!Ref CreateOidcProvider, "true"]
+  PinToIds: !And [!Not [!Equals [!Ref GitHubOwnerId, ""]], !Not [!Equals [!Ref GitHubRepoId, ""]]]
 
 Resources:
   GitHubOidcProvider:
@@ -60,7 +72,11 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${Branch}
+                token.actions.githubusercontent.com:sub: !If
+                  - PinToIds
+                  # The immutable form pins the numeric ids, so a deleted and re-created repository with the same name cannot assume the role.
+                  - !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:ref:refs/heads/${Branch}
+                  - !Sub repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/${Branch}
       Policies:
         - PolicyName: invoke-one-model
           PolicyDocument:

@@ -17,14 +17,14 @@ python examples/guard_quickstart.py
 ```python
 from acp.guard import Guard
 
-guard = Guard.from_file("guard.yaml", audit_db="audit.db")      # the rules, and where the log goes
-guard.register("get_payment", get_payment)                       # your real functions, named as in the rules
+guard = Guard.from_file("guard.yaml", audit_db="audit.db")  # the rules, and where the log goes
+guard.register("get_payment", get_payment)  # your real functions, named as in the rules
 guard.register("propose_refund", propose_refund)
 
-session = guard.session(tenant="m_acme", user_text="Refund pay_A001 for Rs 500")   # one task for one customer
-result = session.call("get_payment", payment_id="pay_A001")      # a ToolOutcome
-tool_result_for_the_model = result.for_model()                   # the data, or a refusal that reveals nothing more
-shown = session.check_answer(model_answer)                       # mask card data, withhold unverifiable amounts
+session = guard.session(tenant="m_acme", user_text="Refund pay_A001 for Rs 500")  # one task for one customer
+result = session.call("get_payment", payment_id="pay_A001")  # a ToolOutcome
+tool_result_for_the_model = result.for_model()  # the data, or a refusal that reveals nothing more
+shown = session.check_answer(model_answer)  # mask card data, withhold unverifiable amounts
 ```
 
 `session.tool("get_payment")` returns a plain function (keyword arguments in, a model-safe dict out) for agent frameworks that
@@ -49,7 +49,9 @@ silently ignored.
 Rules that cannot be written in a file (they need a lookup in your system) go in code, next to the registration:
 
 ```python
-guard.add_check("propose_refund", lambda args, session: None if ok(args, session) else ("over_limit", "More than is refundable."))
+guard.add_check(
+    "propose_refund", lambda args, session: None if ok(args, session) else ("over_limit", "More than is refundable.")
+)
 ```
 
 A check returns `None` to allow or `(code, reason)` to refuse. The quickstart uses two: the payment must belong to the tenant, and the
@@ -60,9 +62,9 @@ amount must fit what is left refundable.
 ```python
 guard = Guard.from_file("guard.yaml", on_approval=notify_someone)
 outcome = session.call("propose_refund", payment_id="pay_A001", amount_paise=50_000)
-outcome.code            # "pending_approval"; your function has NOT run
-guard.pending()         # [ApprovalRequest, ...]
-guard.decide(outcome.approval.id, True, by="Priya", note="duplicate order")   # now it runs, once
+outcome.code  # "pending_approval"; your function has NOT run
+guard.pending()  # [ApprovalRequest, ...]
+guard.decide(outcome.approval.id, True, by="Priya", note="duplicate order")  # now it runs, once
 ```
 
 A request can be decided once. Asking twice for the same thing returns the same request. `by` is required, and every decision (and

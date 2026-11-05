@@ -2,7 +2,7 @@
 // Same pattern as the webhook (_events.js): one narrow write path, confined to SIM_WRITE_OPS. The attack runs elsewhere,
 // in the worker, against the real policy engine; this function only queues it.
 const crypto = require("crypto");
-const { writeConfig, pipeline, dispatchWorker } = require("./_events");
+const { writeConfig, pipeline, dispatchStatus } = require("./_events");
 
 const PREFIX = "acp:live:sim:";
 const QUEUE = PREFIX + "queue", JOBS = PREFIX + "jobs";
@@ -57,8 +57,8 @@ async function createJob(body, session) {
     ["LPUSH", JOBS, id], ["LTRIM", JOBS, 0, JOBS_KEPT - 1],
     ["LPUSH", QUEUE, id], ["EXPIRE", QUEUE, JOB_TTL_S],
   ], SIM_WRITE_OPS);
-  const pinged = await dispatchWorker(cfg, "acp-sim");
-  return { code: 200, body: { id, worker_pinged: pinged } };
+  const ping = await dispatchStatus(cfg, "acp-sim");
+  return { code: 200, body: { id, worker_pinged: ping === "ok", worker_ping: ping } };
 }
 
 module.exports = { createJob, maskPayload, PRESETS, TENANTS, SIM_WRITE_OPS };

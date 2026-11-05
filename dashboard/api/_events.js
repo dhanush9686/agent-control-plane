@@ -40,23 +40,29 @@ async function pipeline(cfg, commands, allowed = WRITE_OPS) {
 // Ask GitHub Actions to start the hosted worker (see .github/workflows/live-worker.yml). Optional: with no token or repo
 // configured nothing happens and the hourly schedule is the backstop. At most one ping a minute, and a failure here never
 // affects the webhook's answer to Razorpay.
-async function dispatchWorker(cfg, eventType) {
+async function dispatchStatus(cfg, eventType) {
   const token = process.env.GITHUB_DISPATCH_TOKEN, repo = process.env.GITHUB_REPO;
-  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(repo || "")) return false;
+  if (!token) return "no_token";
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo || "")) return "bad_repo";
   try {
     const [first] = await pipeline(cfg, [["SET", PREFIX + "dispatch", "1", "NX", "EX", 60]]);
-    if (first !== "OK") return false;
+    if (first !== "OK") return "throttled";
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 4000);
     try {
       const r = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
         method: "POST", signal: ctl.signal,
-        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" },
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "agent-control-plane", "Content-Type": "application/json" },
         body: JSON.stringify({ event_type: eventType }),
       });
-      return r.status === 204;
+      return r.status === 204 ? "ok" : "http_" + r.status;
     } finally { clearTimeout(timer); }
-  } catch (_) { return false; }
+  } catch (_) { return "error"; }
+}
+
+// True when GitHub accepted the request. `dispatchStatus` says why not (a short code, never a secret).
+async function dispatchWorker(cfg, eventType) {
+  return (await dispatchStatus(cfg, eventType)) === "ok";
 }
 
 function verifySignature(raw, signature, secret) {
@@ -127,4 +133,4 @@ async function ingest(raw, headers) {
   return { code: 200, body: { queued: true, id, worker_pinged: pinged } };
 }
 
-module.exports = { ingest, verifySignature, slimPayment, eventId, writeConfig, pipeline, dispatchWorker, WRITE_OPS };
+module.exports = { ingest, verifySignature, slimPayment, eventId, writeConfig, pipeline, dispatchWorker, dispatchStatus, WRITE_OPS };

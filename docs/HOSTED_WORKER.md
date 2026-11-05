@@ -21,10 +21,16 @@ a test fails if one appears in a workflow.
    for Bedrock. If your account already has the GitHub OIDC provider, pass `CreateOidcProvider=false` and its ARN.
    ```bash
    aws cloudformation deploy --stack-name acp-github-oidc --template-file infra/github-oidc-bedrock.yaml \
-     --capabilities CAPABILITY_NAMED_IAM --region ap-south-1
+     --capabilities CAPABILITY_NAMED_IAM --region ap-south-1 \
+     --parameter-overrides GitHubOwnerId=$(gh api repos/<owner>/<repo> --jq .owner.id) GitHubRepoId=$(gh api repos/<owner>/<repo> --jq .id)
    aws cloudformation describe-stacks --stack-name acp-github-oidc --region ap-south-1 \
      --query "Stacks[0].Outputs[?OutputKey=='RoleArn'].OutputValue" --output text
    ```
+   The two ids matter: GitHub now puts the numeric owner and repository ids in the token's subject
+   (`repo:<owner>@<owner id>/<repo>@<repo id>:ref:refs/heads/main`, the repository's "immutable subject" OIDC setting, which you can read with
+   `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`). A role that trusts only the older name-only form refuses every run with
+   "Not authorized to perform sts:AssumeRoleWithWebIdentity". The id form also stops a deleted and re-created repository of the same name from
+   assuming the role. Leave the ids out only if that setting is off for your repository.
 2. **Give the repository its settings.** This reads your local `.env` and sends values straight to GitHub (nothing is printed):
    ```bash
    scripts/setup_github_actions.sh arn:aws:iam::<account>:role/acp-github-bedrock-invoke ap-south-1

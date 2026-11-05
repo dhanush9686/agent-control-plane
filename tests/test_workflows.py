@@ -90,6 +90,11 @@ def test_the_aws_role_trusts_only_this_repo_on_main_and_can_invoke_one_model(rol
     assert trust["Action"] == "sts:AssumeRoleWithWebIdentity"
     assert cond["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
     assert "ref:refs/heads/" in str(cond["token.actions.githubusercontent.com:sub"]) and "*" not in str(cond)
+    subs = cond["token.actions.githubusercontent.com:sub"]  # a plain value, or both forms behind an if
+    forms = [v for v in str(subs).split("repo:")[1:]]
+    assert forms and all(":ref:refs/heads/${Branch}" in f for f in forms)  # every accepted subject is the one branch
+    # the id-pinned form GitHub now issues
+    assert any("@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}" in f for f in forms)
     st = role["Policies"][0]["PolicyDocument"]["Statement"]
     assert len(st) == 1 and st[0]["Action"] == "bedrock:InvokeModel" and st[0]["Effect"] == "Allow"
     assert len(st[0]["Resource"]) == 2 and not any(r == "*" for r in st[0]["Resource"])

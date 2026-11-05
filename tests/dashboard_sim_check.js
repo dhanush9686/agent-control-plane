@@ -99,6 +99,26 @@ const env = () => { process.env.KV_REST_API_URL = "https://x.upstash.io"; proces
   r = redis();
   assert.strictEqual((await post({ tenant: "m_acme", preset: "cross-tenant" })).body.worker_pinged, true);
   assert.deepStrictEqual(r.sent.find((x) => x.gh).gh, { event_type: "acp-sim" });
+  // --- and when it cannot ping, the answer says why with a short code (never a secret), so a misconfiguration is visible
+  const why = async (setup, ghStatus = 204) => {
+    r = redis(); setup();
+    const base = global.fetch; let headers = null;
+    global.fetch = async (url, opts) => { if (String(url).startsWith("https://api.github.com")) { headers = opts.headers; return { status: ghStatus }; } return base(url, opts); };
+    const out = (await post({ tenant: "m_acme", preset: "cross-tenant" })).body; global.fetch = base;
+    assert.ok(!JSON.stringify(out).includes("ghp_test"), "no secret in the response");
+    return { ping: out.worker_ping, pinged: out.worker_pinged, headers };
+  };
+  const set = (t, repo) => () => { if (t) process.env.GITHUB_DISPATCH_TOKEN = t; else delete process.env.GITHUB_DISPATCH_TOKEN; if (repo) process.env.GITHUB_REPO = repo; else delete process.env.GITHUB_REPO; };
+  assert.strictEqual((await why(set(null, "owner/repo"))).ping, "no_token");
+  assert.strictEqual((await why(set("ghp_test", null))).ping, "bad_repo");
+  assert.strictEqual((await why(set("ghp_test", "owner/repo\n"))).ping, "bad_repo", "a trailing newline in the variable is caught");
+  assert.strictEqual((await why(set("ghp_test", "owner/repo"), 401)).ping, "http_401");
+  assert.strictEqual((await why(set("ghp_test", "owner/repo"), 404)).ping, "http_404");
+  const okRun = await why(set("ghp_test", "owner/repo"));
+  assert.deepStrictEqual([okRun.ping, okRun.pinged], ["ok", true]);
+  assert.ok(okRun.headers["User-Agent"], "GitHub rejects requests without a User-Agent");
+  r = redis(); set("ghp_test", "owner/repo")(); r.kv["acp:live:dispatch"] = "1";
+  assert.strictEqual((await post({ tenant: "m_acme", preset: "cross-tenant" })).body.worker_ping, "throttled");
   delete process.env.GITHUB_DISPATCH_TOKEN; delete process.env.GITHUB_REPO;
 
   // --- the feed: login required; raw model answers and the requester's email stay hidden from viewers
