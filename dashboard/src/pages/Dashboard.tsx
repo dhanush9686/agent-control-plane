@@ -6,10 +6,59 @@ import { ageText, freshness, pct, pct1, shortModel, usd } from "@/lib/format";
 import { KIND_LABEL, SOURCE_LABEL } from "@/lib/vocab";
 import { Badge, Card, Disclosure, PageHeader, PairBars, SectionTitle, Stat } from "@/components/ui";
 import { ArchitectureGraph, RunItem, RunBadges } from "@/components/domain";
+import { useActivity } from "@/lib/activity";
 
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
+const WAIT_MS = 120_000;
+
+/* What the live feeds have recorded so far: webhook events handled by the agent and simulator runs. */
+function LiveActivity() {
+  const { events, sim } = useActivity();
+  const evs = events?.events ?? [], jobs = sim?.jobs ?? [];
+  const evDone = evs.filter((e) => e.state === "done"), jobDone = jobs.filter((j) => j.verdict);
+  const evLeaks = evDone.reduce((n, e) => n + (e.verdict?.mistakes_with_guardrails ?? 0), 0);
+  const evWould = evDone.reduce((n, e) => n + (e.verdict?.mistakes_without ?? 0), 0);
+  const simBreach = jobDone.filter((j) => j.verdict!.guarded === "breach").length;
+  const simBase = jobDone.filter((j) => j.verdict!.unguarded === "breach").length;
+  const stuck = [...evs.filter((e) => e.state === "queued").map((e) => e.received_at), ...jobs.filter((j) => j.state === "queued").map((j) => j.created_at)]
+    .some((t) => Date.now() - Date.parse(t) > WAIT_MS);
+  const lastEv = evs[0], lastJob = jobs[0];
+
+  return (
+    <div className="mt-6">
+      <SectionTitle right={<Badge tone="accent" dot>Updates every 5s</Badge>}>Live activity</SectionTitle>
+      {stuck && <p className="mb-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Some items have waited over two minutes: the worker is not running. Start it with <code className="font-mono text-xs">make live-worker</code>, or run the live-worker workflow on GitHub.</p>}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <div className="flex items-start justify-between"><div className="text-sm font-medium">Webhook events</div><Link to="/app/events" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
+          {events && events.configured ? (
+            <>
+              <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{evs.length}</span><span className="text-sm text-muted">received · {evDone.length} handled · {events.queue} waiting</span></div>
+              <p className="mt-2 text-sm text-muted">Across handled events: <b className="text-good">{evLeaks}</b> mistakes with guardrails, <b className="text-bad">{evWould}</b> the baseline would have made.</p>
+              {lastEv && <p className="mt-2 text-xs text-faint">Latest: <code className="font-mono">{lastEv.payment.id}</code> · {lastEv.state} · {ageText(lastEv.received_at)}</p>}
+              {!lastEv && <p className="mt-2 text-sm text-muted">No events yet. Make a test payment on the Live events page.</p>}
+            </>
+          ) : <p className="mt-3 text-sm text-muted">{events ? "The event store is not configured." : "Loading…"}</p>}
+        </Card>
+        <Card>
+          <div className="flex items-start justify-between"><div className="text-sm font-medium">Guardrail simulator</div><Link to="/app/simulator" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
+          {sim && sim.configured ? (
+            <>
+              <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{jobs.length}</span><span className="text-sm text-muted">runs · {jobDone.length} finished · {sim.queue} waiting</span></div>
+              <p className="mt-2 text-sm text-muted">Of finished runs: <b className="text-good">{simBreach}</b> breaches with guardrails, <b className="text-bad">{simBase}</b> without.</p>
+              {lastJob && <p className="mt-2 text-xs text-faint">Latest: {lastJob.title ?? "Custom payload"} · {lastJob.state}{lastJob.verdict ? ` · guarded ${lastJob.verdict.guarded}, baseline ${lastJob.verdict.unguarded}` : ""} · {ageText(lastJob.created_at)}</p>}
+              {!lastJob && <p className="mt-2 text-sm text-muted">No simulations yet. Run an attack on the Guardrail simulator page.</p>}
+            </>
+          ) : <p className="mt-3 text-sm text-muted">{sim ? "The simulator store is not configured." : "Loading…"}</p>}
+        </Card>
+      </div>
+      <p className="mt-2 text-xs text-faint">The headline numbers above come from the saved benchmark and the latest scheduled check. Events and simulations are counted here separately, over the most recent ones kept.</p>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -35,6 +84,8 @@ export default function Dashboard() {
           ? <Stat num={`${liveG.k}/${liveG.n}`} cap="passed in the latest live check." fine={`${usd(latest.cost_usd)} · ${shortModel(latest.model)}`} />
           : <Stat num="n/a" cap="No live check yet." />}
       </div>
+
+      <LiveActivity />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">

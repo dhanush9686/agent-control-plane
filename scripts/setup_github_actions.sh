@@ -17,7 +17,7 @@ set -a; . ./.env; set +a
 
 put_secret() {  # name, value
   if [ -z "${2:-}" ]; then echo "  skipped $1 (not set in .env)"; return; fi
-  printf '%s' "$2" | gh secret set "$1" --body - >/dev/null && echo "  secret   $1"
+  printf '%s' "$2" | gh secret set "$1" >/dev/null && echo "  secret   $1"  # no --body: gh then reads the value from stdin (--body - would store a literal dash)
 }
 echo "Secrets (values are sent directly to GitHub):"
 put_secret UPSTASH_REDIS_REST_URL   "${UPSTASH_REDIS_REST_URL:-${KV_REST_API_URL:-}}"
