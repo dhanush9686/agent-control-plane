@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 Q ?= Who kills Garuda, and how does Rocky's story end?
 
-.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human serve-api create-user longdoc assure assure-gate audit-verify
+.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human serve-api create-user longdoc assure assure-gate audit-verify dashboard-build
 
 setup:  ## create venv, install deps, build the search index
 	python3 -m venv .venv
@@ -98,3 +98,6 @@ assure-gate:  ## same, and exit 1 if evals/assure/thresholds.json is violated
 
 audit-verify:  ## check the audit hash chain of the traces database
 	$(PY) -m acp.assure.audit verify
+
+dashboard-build:  ## rebuild the dashboard's assurance data and the login-protected data bundle
+	$(PY) scripts/build_dashboard.py

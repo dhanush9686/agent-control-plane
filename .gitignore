@@ -36,3 +36,6 @@ data/faiss_squad2/
 data/kb/
 data/service.db*
 .vercel
+
+# generated dashboard data bundle (see scripts/build_dashboard.py)
+dashboard/api/_data.js

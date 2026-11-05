@@ -131,3 +131,20 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
   (`lookup-6`, not re-run).
 - **Strip `<thinking>` text:** Nova prints reasoning tags into answers; they are removed in both modes before guards run.
 - **Audit log:** SHA-256 hash chain in SQLite (migration 5). Tamper-evident only; anchor the head externally in production.
+
+## 23. Dashboard: assurance tab, replay sandbox, server-side login
+- **Replay, not a live model, in the browser:** the public page cannot call Bedrock (cost, keys, abuse). Instead a
+  deterministic scripted attacker is run through the real policy engine, masking, numeric check and ledger, with guards
+  off and on (`acp/assure/replay.py`), and the output is saved as data. It is labelled as a scripted attacker everywhere;
+  it demonstrates enforcement, and says nothing about how often a real model misbehaves (the live suite measures that).
+- **Login is enforced on the server, not in the page.** A password check in browser JavaScript is decoration. The
+  data is bundled into a serverless function (`dashboard/api/_data.js`, gitignored, generated) and returned only when a
+  signed cookie is valid; `.vercelignore` stops `data/` being uploaded as public static files. The session is
+  `<expiry>.<HMAC-SHA256(password, expiry)>`, so there is no user table, it expires on its own, and changing the password
+  invalidates every session. Comparison is constant-time; with no password configured everything is refused.
+- **Tested adversarially** (`tests/dashboard_auth_check.js`, run by pytest): wrong/malformed passwords, forged,
+  extended, expired and other-password cookies, path-style file names, password change. I confirmed the test fails when the
+  signature check is disabled.
+- **Limits accepted:** one shared password; no cross-instance brute-force counter on serverless (a fixed delay only); the HTML/JS
+  shell is public, only data is gated; the repo still contains the demo data files, so making the repo public would
+  expose them regardless of the login.

@@ -2,7 +2,7 @@
 
 A thin reliability layer around an LLM agent. Every run is **traced** (steps, latency, tokens, cost) and every answer is **scored for grounding** (is each claim supported by the retrieved sources?), so a team can see *when* and *why* the agent fails. It now also includes an [assurance layer for agents that touch money](#assurance-layer-for-agents-that-touch-money): policy, masking, numeric checks, a tamper-evident audit log and a scenario gate.
 
-- **Live dashboard:** https://agent-observability-lab.vercel.app (static, shows saved results of the film demo; the document service and the assurance suite run locally and need AWS credentials)
+- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). It shows the assurance results with a replayable attack sandbox, plus the film-demo evals. All of it is saved output; the document service and the live assurance suite run locally and need AWS credentials.
 - **Repo:** https://github.com/dhanush9686/agent-control-plane
 
 ![Dashboard overview](docs/dashboard-overview.png)
@@ -50,6 +50,8 @@ make assure        # both modes, 3 repeats, a few cents on Bedrock
 make assure-gate   # exit 1 if evals/assure/thresholds.json is violated (0 critical outcomes guarded, pass-rate floor)
 make audit-verify  # verify the audit hash chain
 ```
+
+**Dashboard and login.** The Assurance tab shows the results above, a side-by-side **attack replay** (a deterministic scripted attacker run through the real policy engine with guards off and on; it is not a model) and a live demonstration of the audit chain catching an edited row. The deployed dashboard sits behind a password: serverless functions (`dashboard/api/`) check `DASHBOARD_PASSWORD`, set an HttpOnly, Secure, SameSite=Strict cookie holding an expiring HMAC of the password, and serve the data only to a visitor who has one (the data is bundled into the function, not served as static files). It fails closed when no password is set. Honest limits: one shared password, no per-user accounts, no cross-instance rate limiting (a fixed delay after a wrong guess), and the page shell (HTML/JS, no data) is public. It protects saved demo data from casual visitors; it is not an identity system. Rebuild with `make dashboard-build`, then `vercel env add DASHBOARD_PASSWORD production` and `vercel --prod` from `dashboard/`.
 
 Not yet done: a second model compared on the same suite (the suite is what lets you test a model swap), tool-use through the document service, and a larger scenario set.
 

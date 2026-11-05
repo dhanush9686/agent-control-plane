@@ -1,0 +1,2 @@
+# The data is bundled into api/_data.js and served only behind the login; never upload it as public static files.
+data/

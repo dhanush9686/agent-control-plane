@@ -17,11 +17,13 @@
   </div>
   <div class="actions">
     <a id="repo-link" class="btn" href="#" hidden>GitHub</a>
+    <button id="logout" class="btn" type="button" hidden>Log out</button>
     <button id="theme" class="btn" type="button" aria-label="Toggle dark or light theme">Theme</button>
   </div>
 </header>
 <nav class="tabs" role="tablist" aria-label="Views">
-  <button role="tab" id="tab-overview" aria-controls="main" data-view="overview">Overview</button>
+  <button role="tab" id="tab-assurance" aria-controls="main" data-view="assurance">Assurance</button>
+  <button role="tab" id="tab-overview" aria-controls="main" data-view="overview">Film demo</button>
   <button role="tab" id="tab-runs" aria-controls="main" data-view="runs">Runs</button>
   <button role="tab" id="tab-failures" aria-controls="main" data-view="failures">Failures</button>
   <button role="tab" id="tab-lineage" aria-controls="main" data-view="lineage">Lineage</button>
@@ -29,7 +31,7 @@
   <button role="tab" id="tab-trends" aria-controls="main" data-view="trends">Trends</button>
 </nav>
 <main id="main" tabindex="-1" aria-live="polite"><p class="muted">Loading data…</p></main>
-<footer>Data: <code>data/traces.json</code>, exported from real runs. Cost is an estimate from a price table.</footer>
+<footer>Data exported from real runs (film demo) and from the synthetic payments sandbox (assurance). Cost is an estimate from a price table.</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD" crossorigin="anonymous" defer></script>
 <script src="app.js" defer></script>
 </body>
