@@ -87,3 +87,31 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 - **Why:** our corpus and grader labels are author-written. SQuAD 2.0 gives human-written answerable *and unanswerable* questions (a refusal test the author did not design); RAGTruth and FEVER give grader labels made by human annotators. Results are reported per dataset and never blended with the author-written labels.
 - **Fetched, not committed:** two of the three dataset cards state no redistribution licence, so `make benchmarks` downloads small seeded slices through the public Hugging Face rows API into a gitignored folder, with a manifest.
 - **Caveat we saw immediately:** SQuAD 2.0 "unanswerable" questions are sometimes negation tricks that can be answered truthfully, and a strict grader may correctly reject a dropped qualifier ("most"); expect a ceiling below 100%. We report it instead of cleaning the data to look better.
+
+## 21. Move to Amazon Bedrock; which Nova model (measured)
+- **What changed:** the LLM provider is now Amazon Bedrock (Converse API) instead of Groq; embeddings are Titan Text
+  Embeddings v2 (1024-dim) instead of local MiniLM; Pinecone index is `acp-docs-<dim>`. Groq stays selectable with
+  `ACP_LLM_PROVIDER=groq`; MiniLM with `ACP_EMBEDDING_PROVIDER=minilm`. The legacy film demo still retrieves with local
+  FAISS + MiniLM (not migrated).
+- **Not free any more:** Bedrock bills per token. Guard rails: per-user daily question/upload quotas, per-model token
+  budgets, and a global daily spend cap (`ACP_DAILY_BUDGET_USD`, default $1.00) counted from real token usage times a
+  price table (`acp/config.py`, override with `ACP_PRICES_JSON`; prices are my best knowledge, verify on the AWS pricing
+  page). Embedding spend is counted too.
+- **Model choice by experiment, not by price alone.** Live A/B on the 410-page demo document, 14 questions
+  (5 clean, 5 paraphrased, 2 unanswerable, 2 injected):
+
+  | judge / answer | score | injected | est. cost for the 14 questions |
+  |---|---|---|---|
+  | Micro / Micro | 13/14 | 1/2 | $0.0022 |
+  | Lite / Micro | 13/14 | 1/2 | $0.0031 |
+  | Micro / Lite | 14/14 | 2/2 | $0.0028 |
+  | Lite / Lite | 14/14 | 2/2 | $0.0036 |
+
+  Chosen: Lite for everything, Micro fallback. Caveats: tiny sample; the decisive evidence is the targeted failures
+  (Micro judge missed a fact among 10 chunks; Micro refused an injected question), not the 1-question gap.
+- **Retries are now polite:** one shared helper caps each sleep at 10 s, gives each call a 60 s deadline, and abandons a
+  provider that asks for more than 15 s, so a fallback model serves the request (this removed the earlier multi-minute stall).
+- **Titan embeds one text per request** (no batch endpoint): a 410-page, 1,338-chunk document took 111 s to ingest (vs 42 s with
+  local MiniLM) and cost $0.0045 in embeddings.
+- **Not available here:** a Bedrock rerank model is not offered in ap-south-1, so reranking stays off (the optional
+  cross-encoder is a local open-source model).

@@ -32,11 +32,11 @@ def _judge(llm, question):
     return llm.structured(JudgeVerdict, prompt, purpose="judge")
 
 
-def test_cheapest_model_completes_and_reports_real_token_counts():
+def test_default_model_completes_and_reports_real_token_counts():
     s = Settings()
-    assert s.llm_provider == "bedrock" and "nova-micro" in s.model
-    # (Observed: asked to "reply with exactly one word: pong", Nova Micro said "game". The cheapest model follows
-    # literal-format instructions loosely, so this test uses a plain factual question instead.)
+    assert s.llm_provider == "bedrock" and "nova-lite" in s.model
+    # (Observed: asked to "reply with exactly one word: pong", Nova Micro said "game"; that, plus a missed fact and an
+    # over-refusal on a real document, is why the default is one notch up (Nova Lite). Plain factual question here.)
     res = get_llm(s).complete("What is the capital of France? Answer in one word.", purpose="live")
     assert "paris" in res.text.lower() and res.input_tokens > 0 and res.output_tokens > 0 and res.model == s.model
 

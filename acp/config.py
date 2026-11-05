@@ -65,10 +65,15 @@ def _aws_region() -> str | None:
         return None
 
 
-def _bedrock_models() -> tuple[str, str]:
-    """(cheapest, next cheapest) text models available through this region's inference profiles."""
+def _bedrock_models() -> tuple[str, str, str]:
+    """(micro, lite, pro): Amazon Nova text models served by this region's inference-profile prefix."""
     pre = bedrock_profile_prefix(_aws_region())
-    return f"{pre}.amazon.nova-micro-v1:0", f"{pre}.amazon.nova-lite-v1:0"
+    return f"{pre}.amazon.nova-micro-v1:0", f"{pre}.amazon.nova-lite-v1:0", f"{pre}.amazon.nova-pro-v1:0"
+
+
+# Which Nova model does what (measured, see docs/DECISIONS.md #21): the cheapest model (Micro) missed a fact among 10
+# chunks and refused an injected question; Nova Lite fixed both for ~60% more money (about $0.26 per 1,000 questions).
+# So Lite answers and judges, Micro is the fallback, and Pro (stronger than the answerer) grades evals.
 
 
 def _provider() -> str:
@@ -76,13 +81,13 @@ def _provider() -> str:
 
 
 def _default_model() -> str:
-    return os.environ.get("ACP_MODEL") or (_bedrock_models()[0] if _provider() == "bedrock" else "openai/gpt-oss-120b")
+    return os.environ.get("ACP_MODEL") or (_bedrock_models()[1] if _provider() == "bedrock" else "openai/gpt-oss-120b")
 
 
 def _default_judge() -> str:
-    # The grader should not be the same model that answers (less self-preference); Nova Lite is the next cheapest.
+    # The eval grader should be stronger than (and different from) the model it grades: Nova Pro grades Nova Lite.
     return os.environ.get("ACP_JUDGE_MODEL") or (
-        _bedrock_models()[1] if _provider() == "bedrock" else "qwen/qwen3.8-27b"
+        _bedrock_models()[2] if _provider() == "bedrock" else "qwen/qwen3.8-27b"
     )
 
 
@@ -184,12 +189,12 @@ class Settings:
     # the strongest synthesizes; when one is out of free-tier budget the next is used.
     judge_models: tuple[str, ...] = field(
         default_factory=lambda: _chain(
-            "ACP_JUDGE_MODELS", _bedrock_models(), ("openai/gpt-oss-20b", "qwen/qwen3.8-27b")
+            "ACP_JUDGE_MODELS", _bedrock_models()[1::-1], ("openai/gpt-oss-20b", "qwen/qwen3.8-27b")
         )
     )
     synth_models: tuple[str, ...] = field(
         default_factory=lambda: _chain(
-            "ACP_SYNTH_MODELS", _bedrock_models(), ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
+            "ACP_SYNTH_MODELS", _bedrock_models()[1::-1], ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
         )
     )
     rerank: bool = field(default_factory=lambda: _env_bool("ACP_RERANK", False))

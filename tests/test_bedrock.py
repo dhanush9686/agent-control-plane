@@ -259,3 +259,17 @@ def test_prefix_helper_and_cost_lookup():
     s = Settings()
     assert s.cost_usd(1_000_000, 1_000_000, "us.amazon.nova-micro-v1:0") == pytest.approx(0.175)
     assert s.cost_usd(1_000_000, 0, "totally.unknown-model") == 0.0
+
+
+def test_default_chains_use_nova_lite_first_with_micro_as_fallback_and_pro_as_grader(monkeypatch):
+    for k in ("ACP_MODEL", "ACP_JUDGE_MODEL", "ACP_JUDGE_MODELS", "ACP_SYNTH_MODELS", "ACP_LLM_PROVIDER"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("AWS_REGION", "ap-south-1")
+    s = Settings()
+    assert s.model == "apac.amazon.nova-lite-v1:0"
+    assert s.judge_models == s.synth_models == ("apac.amazon.nova-lite-v1:0", "apac.amazon.nova-micro-v1:0")
+    assert s.judge_model == "apac.amazon.nova-pro-v1:0" and s.judge_model != s.model
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    assert Settings().synth_models[0] == "us.amazon.nova-lite-v1:0"  # region prefix follows AWS_REGION
+    monkeypatch.setenv("ACP_SYNTH_MODELS", "a, b ,c")
+    assert Settings().synth_models == ("a", "b", "c")  # env override still wins
