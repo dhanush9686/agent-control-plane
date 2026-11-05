@@ -30,6 +30,8 @@ jobs:
     env:
       UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+      DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Is anything waiting?

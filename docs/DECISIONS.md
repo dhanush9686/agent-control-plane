@@ -186,3 +186,33 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
   measured per tool call. It reports six real guardrails, not invented checks.
 - **Rejected:** reimplementing the policy engine in JavaScript to answer instantly (two engines drift), and running the Python agent in a Vercel function.
 
+
+## Guard library, approvals queue and compliance report
+
+- **A generic library next to the benchmarked engine, not a rewrite of it.** The measured results come from the payments runtime. Rebuilding
+  that runtime on a new generic engine would have invalidated every number and risked the claims. `acp.guard` reuses the masking, numeric and
+  audit modules and has its own tests; the docs say plainly that the benchmark does not transfer to it. Rejected: moving the benchmark onto the
+  library without re-measuring.
+- **Rules in a strict YAML file.** Unknown keys are an error so a typo cannot silently remove a control. Rules that need a lookup in the
+  user's own system stay in code (`add_check`) rather than inventing a rule language.
+- **A write that needs approval is held, not run.** The guard stores the request and runs the function only when a person approves, once.
+  Rejected: running it and offering an undo, because the point of the control is that nothing happens first.
+- **The queue is three Redis keys per approval** (request, decision, audit state), each written by exactly one party. The website writes the
+  decision with `SET NX`, so the first decision wins and a double click or two admins cannot overwrite each other; the worker never rewrites it.
+  Rejected: one record both sides update, which needs locking Redis does not give us over REST.
+- **Decisions go into the audit chain through the worker.** The chain lives next to the worker's SQLite file; the website cannot append to it
+  safely. So a decision is stored at once and shows "waiting to be written to the audit log" until the worker's next run. A decision is
+  identified by the signed-in person's display name, not their email, so addresses do not end up in a file anyone signed in can download.
+- **Only admins decide.** Viewers can watch the queue. There is no rule that the requester cannot approve their own request: the requester is
+  an agent. Four-eyes for human requesters is not built.
+- **Alerts go to one webhook (Slack-style), not email.** It needs one secret and no mail server, and most teams already route Slack to a phone.
+  Limited to 20 an hour (counted in Redis so it survives restarts), https only, masked, ids and amounts only, never customer text, and a failure
+  to send is logged and ignored. The event path ignores the system's own cross-tenant probe, which runs on every event and would alert every time.
+- **The report is built by the worker and only stored by the website.** The chain check needs the log, which the website cannot reach, and
+  one builder keeps the HTML, JSON and CSV identical. Each copy is kept under 380 KB by listing fewer of the newest entries (the whole chain is
+  still checked and the report says so).
+- **A verifier that shares no code with the project.** `scripts/verify_audit_export.py` uses only the standard library, so a compliance reader
+  does not have to trust the code that wrote the log. It proves the export was not edited after it was made, not that the log was never rewritten
+  before export; the report says that and recommends anchoring the head hash elsewhere.
+- **CSV cells starting with `=`, `+`, `-` or `@` are prefixed** so a spreadsheet does not run them as formulas. The report page is served with a
+  `default-src 'none'` policy and every printed value is HTML-escaped.

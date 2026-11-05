@@ -43,3 +43,6 @@ results/seed/
 # local development fixture for the Live events page
 dashboard/data/events.dev.json
 dashboard/data/sim.dev.json
+dashboard/data/approvals.dev.json
+dashboard/data/report.dev.*
+dashboard/data/reportmeta.dev.json

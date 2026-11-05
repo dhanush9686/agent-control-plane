@@ -17,7 +17,7 @@ const WAIT_MS = 120_000;
 
 /* What the live feeds have recorded so far: webhook events handled by the agent and simulator runs. */
 function LiveActivity() {
-  const { events, sim } = useActivity();
+  const { events, sim, approvals } = useActivity();
   const evs = events?.events ?? [], jobs = sim?.jobs ?? [];
   const evDone = evs.filter((e) => e.state === "done"), jobDone = jobs.filter((j) => j.verdict);
   const evLeaks = evDone.reduce((n, e) => n + (e.verdict?.mistakes_with_guardrails ?? 0), 0);
@@ -32,7 +32,7 @@ function LiveActivity() {
     <div className="mt-6">
       <SectionTitle right={<Badge tone="accent" dot>Updates every 5s</Badge>}>Live activity</SectionTitle>
       {stuck && <p className="mb-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Some items have waited over two minutes. The worker is not running.</p>}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <div className="flex items-start justify-between"><div className="text-sm font-medium">Payment events</div><Link to="/app/events" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
           {events && events.configured ? (
@@ -54,6 +54,15 @@ function LiveActivity() {
               {!lastJob && <p className="mt-2 text-sm text-muted">No simulations yet.</p>}
             </>
           ) : <p className="mt-3 text-sm text-muted">{sim ? "Not configured." : "Loading…"}</p>}
+        </Card>
+        <Card>
+          <div className="flex items-start justify-between"><div className="text-sm font-medium">Approvals</div><Link to="/app/approvals" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
+          {approvals && approvals.configured ? (
+            <>
+              <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{approvals.approvals.filter((a) => a.state === "pending").length}</span><span className="text-sm text-muted">waiting · {approvals.approvals.filter((a) => a.state !== "pending").length} decided</span></div>
+              <p className="mt-2 text-sm text-muted">Refunds the agent drafted for a person to decide.</p>
+            </>
+          ) : <p className="mt-3 text-sm text-muted">{approvals ? "Not configured." : "Loading…"}</p>}
         </Card>
       </div>
     </div>

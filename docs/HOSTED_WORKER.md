@@ -38,6 +38,11 @@ a test fails if one appears in a workflow.
    which is what GitHub requires for `repository_dispatch`). That token can write to the repository's contents, so keep it
    to this repo, give it an expiry, and treat it as a secret. The website pings at most once a minute and ignores failures.
 
+5. **Optional, for alerts.** Add a Slack incoming webhook (or any https endpoint that accepts `{"text": "..."}`) as the repository secret
+   `ALERT_WEBHOOK_URL`, and the dashboard address as the repository variable `DASHBOARD_URL` so alerts link to the Approvals page.
+   If your `.env` has either value, `scripts/setup_github_actions.sh` sends it for you. The worker alerts when a drafted refund is waiting
+   for approval and when the guardrails block an attempt. Limits: 20 alerts an hour, https only, masked, ids and amounts only. Email is not built in.
+
 ## The CI gate
 
 `scripts/check_live_gate.py` applies `evals/assure/thresholds.json` to every source in a live sync: **no guarded critical

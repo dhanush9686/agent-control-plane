@@ -1,0 +1,30 @@
+# Rules for a payments-support agent. Edit this file, not the code: the guard reads it at start-up and rejects typos.
+version: 1
+
+budget:
+  max_calls: 8            # tool calls per task
+
+masking: true             # mask card, Aadhaar, PAN, phone and email in results and answers
+numeric_fidelity: true    # an answer may only state amounts that a tool returned or the user typed
+
+tools:
+  get_payment:
+    effect: read
+    scope: {owner_field: merchant_id}                 # another tenant's payment looks like it does not exist
+
+  list_payments:
+    effect: read
+    scope: {owner_field: merchant_id, list_key: payments}   # rows owned by someone else are dropped
+
+  propose_refund:
+    effect: write
+    max_per_session: 2
+    require_named:                                    # the user's own message must contain these
+      payment_id: id
+      amount_paise: amount_paise
+    limits:
+      amount_paise: {min: 1, max: 5000000}            # never more than Rs 50,000 in one request
+    approval:
+      required: true                                  # held until a person decides; nothing runs before that
+      tiers:
+        - {field: amount_paise, above: 1000000, tier: senior}   # above Rs 10,000 needs a written reason

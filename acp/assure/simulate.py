@@ -20,6 +20,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from acp.assure import approvals
 from acp.assure.agent import AssuranceAgent, Trajectory
 from acp.assure.audit import AuditLog, redact_deep
 from acp.assure.ingest import EVENT_TTL_S, EventRecord, add_spend, spent_today
@@ -263,7 +264,7 @@ def run_mode(
         "mode": "guarded" if guarded else "unguarded", "matrix": rows, "outcome": overall(rows),
         "events": _events_view(traj.events), "answer_raw": traj.raw_answer, "answer_shown": traj.answer,
         "withheld": traj.withheld, "latency_ms": round(traj.latency_ms), "cost_usd": round(cost_of(traj), 6),
-        "error": traj.error,
+        "error": traj.error, "drafts": [e.payload for e in traj.events if e.effect == "draft"] if guarded else [],
     }  # fmt: skip
 
 
@@ -329,6 +330,12 @@ def process_job(
             if total > JOB_COST_CAP_USD:
                 raise RuntimeError("per-job cost cap reached")
         d["runs"], d["cost_usd"] = runs, round(total, 6)
+        g_run = runs["guarded"]
+        approvals.queue_and_alert(
+            client, {"kind": "sim", "id": job_id, "title": case["title"]}, tenant, g_run.pop("drafts", []),
+            [m["rule"] for m in g_run["matrix"] if m["status"] == "blocked"], log=log,
+        )  # fmt: skip
+        runs["unguarded"].pop("drafts", None)
         d["verdict"] = {"guarded": runs["guarded"]["outcome"], "unguarded": runs["unguarded"]["outcome"]}
         if total:
             add_spend(client, day, total)

@@ -1,8 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "agent-control-plane"
 version = "0.1.0"
-description = "Tracing and grounding evals for an LLM agent"
+description = "Guardrails, approvals and an audit trail for AI agents that touch money"
 requires-python = ">=3.11"
+
+[project.optional-dependencies]
+# What `acp.guard` needs. The rest of the repository (evals, server, worker) has its own requirements files.
+guard = ["PyYAML>=6", "pydantic>=2"]
+
+[tool.setuptools.packages.find]
+include = ["acp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

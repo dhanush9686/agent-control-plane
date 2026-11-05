@@ -480,3 +480,26 @@ matrix with measured decision times. *"Isn't that just a chat box?"* No: presets
 limited and cost-capped, and the output is telemetry, not a reply. *"Does the preset result prove the model is safe?"* No. A scripted attacker shows
 what the rules do when the model misbehaves; how often a model misbehaves is what the benchmark measures.
 
+## A.6 The guard library, approvals and the compliance report
+
+**What they are.** (1) `acp.guard`: a small library that puts scope, "the user named it" provenance, limits, a call budget, masking, an
+answer check, approvals and the audit chain in front of any agent's tools, with the rules in a strict YAML file. (2) An approvals queue: a
+refund the agent drafts waits on a page; an admin approves or rejects it (senior tier needs a written reason); the worker writes each
+decision into the audit chain; a Slack-style webhook tells someone when something waits or is blocked. (3) A compliance report (HTML, JSON,
+CSV) with an integrity verdict and a standard-library verifier.
+
+**Why a separate library instead of rebuilding the engine.** The benchmark numbers come from the payments runtime. Moving it onto a new
+engine would have thrown away the measurement. So the library is new, reuses the same masking, numeric and audit code, has its own tests, and
+the docs say the benchmark does not transfer to it.
+
+**Design points worth being able to explain.** A write needing approval is held, not run, and runs once when approved. Each approval is three
+Redis keys with one writer each; the decision uses `SET NX` so the first decision wins. The website cannot append to the audit chain (it lives
+with the worker), so decisions are copied in by the worker and the page says "waiting" until then. The report is built next to the log so the
+chain check is real, and the verifier shares no code with the project so a reader need not trust it.
+
+**Questions to expect.**
+- *Does the library give the benchmark's results?* No. Its tests show each rule works; they do not measure a model behind it. Say so first.
+- *Can the same person request and approve?* The requester is an agent, so there is no human conflict to block; four-eyes for human requesters is not built.
+- *Does approving move money?* No. The ledger is a sample; approval records a decision.
+- *What does the report prove?* That the export was not edited after it was made. Not that the original log was never rewritten: anchor the head hash somewhere you control.
+- *Why Slack and not email?* One secret and no mail server; email is not built in.

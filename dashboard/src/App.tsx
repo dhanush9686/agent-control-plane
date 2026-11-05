@@ -8,6 +8,7 @@ import AppShell from "@/shell/AppShell";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const LiveCheck = lazy(() => import("@/pages/LiveCheck"));
 const Events = lazy(() => import("@/pages/Events"));
+const Approvals = lazy(() => import("@/pages/Approvals"));
 const Users = lazy(() => import("@/pages/Users"));
 const Simulator = lazy(() => import("@/pages/Simulator"));
 const Runs = lazy(() => import("@/pages/Runs"));
@@ -31,6 +32,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="live/:source?" element={<LiveCheck />} />
           <Route path="events" element={<Events />} />
+          <Route path="approvals" element={<Approvals />} />
           <Route path="runs" element={<Runs />} />
           <Route path="simulator" element={<Simulator />} />
           <Route path="users" element={<Users />} />

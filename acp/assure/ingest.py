@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from acp import store
+from acp.assure import approvals, report
 from acp.assure.agent import AssuranceAgent
 from acp.assure.audit import AuditLog, redact_deep
 from acp.assure.evaluate import resolve_model
@@ -37,6 +38,7 @@ from acp.config import ROOT, Settings
 
 KEY_QUEUE, KEY_EVENTS = PREFIX + "queue", PREFIX + "events"
 EVENT_TTL_S = 7 * 24 * 3600
+HOUSEKEEPING_EVERY_S = 30  # while polling: how often to record approval decisions and refresh the report
 
 # A fixed fixture used only to check the agent cannot read another merchant's payment. It is not Razorpay data.
 PROBE_ID = "pay_ProbeOther001"
@@ -151,6 +153,7 @@ def process_event(
         rec.data.update(state="running", started_at=_now(), runs=[], cost_usd=0.0)
         rec.step("Agent picked the event up", "neutral")
         total = 0.0
+        drafts: list[dict[str, Any]] = []
         for sc in scenarios:
             rec.step(f"Check: {sc['prompt']}", "neutral", scenario=sc["id"])
             runs: list[dict[str, Any]] = []
@@ -165,6 +168,8 @@ def process_event(
                 traj = agent.run(sc["prompt"], sc["merchant"], run_id=f"{event_id[:24]}-{sc['id']}-{mode[0]}")
                 cost = settings.cost_usd(traj.input_tokens, traj.output_tokens, traj.model or None)
                 total += cost
+                if mode == "guarded":
+                    drafts += [e.payload for e in traj.events if e.effect == "draft"]
                 s = score(traj, sc, fresh, cost)
                 s.mode = mode
                 runs.append(run_record(s))
@@ -183,6 +188,19 @@ def process_event(
             if u["effective"]:
                 rec.step("Without guardrails this would have gone wrong: " + ", ".join(u["effective"]), "warn")
         add_spend(client, day, total)
+        # The system's own cross-tenant probe runs on every event, so only other kinds of attempt are worth an alert.
+        blocked = [
+            k for r in rec.data["runs"] if r["mode"] == "guarded" for k in r["attempted"] if k != "cross_merchant"
+        ]
+        mine = ledger.payment(pid)
+        approvals.queue_and_alert(
+            client,
+            {"kind": "event", "id": event_id, "title": pid},
+            mine.merchant_id if mine else "",
+            drafts,
+            blocked,
+            log=log,
+        )
         guarded_runs = [r for r in rec.data["runs"] if r["mode"] == "guarded"]
         rec.data["verdict"] = {
             "checks": len(guarded_runs),
@@ -205,6 +223,18 @@ def process_event(
         return "failed"
 
 
+def _housekeeping(client: UpstashClient, audit: AuditLog | None, log: Callable[[str], None]) -> None:
+    """When idle: copy new approval decisions into the audit chain. Never raises."""
+    try:
+        n = approvals.sync_decisions(client, audit)
+        if n:
+            log(f"recorded {n} approval decision(s) in the audit chain")
+        if audit is not None and report.publish_report(client, audit):
+            log("published a fresh audit report")
+    except Exception as e:  # noqa: BLE001 - housekeeping must not stop the worker
+        log(f"approval sync failed: {type(e).__name__}")
+
+
 def drain(
     client: UpstashClient, llm: Any, settings: Any, audit: AuditLog | None, *, once: bool, poll_s: float,
     daily_cap_usd: float, log: Callable[[str], None] = print, sleep: Callable[[float], None] = time.sleep,
@@ -212,7 +242,7 @@ def drain(
     """Process both queues (webhook events first, then simulator jobs). With `once`, stop when both are empty."""
     from acp.assure.simulate import KEY_SIM_QUEUE, process_job
 
-    handled = 0
+    handled, last_housekeeping = 0, float("-inf")
     while True:
         try:
             event_id = client.pipeline([["RPOP", KEY_QUEUE]])[0]
@@ -224,6 +254,9 @@ def drain(
             sleep(max(poll_s, 5))
             continue
         if not event_id and not job_id:
+            if once or time.monotonic() - last_housekeeping >= HOUSEKEEPING_EVERY_S:
+                _housekeeping(client, audit, log)
+                last_housekeeping = time.monotonic()
             if once:
                 return handled
             sleep(poll_s)

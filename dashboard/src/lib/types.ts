@@ -161,3 +161,29 @@ export interface SimJob {
   by: string | null;
 }
 export interface SimFeed { via: string; configured: boolean; queue: number; jobs: SimJob[] }
+
+export interface Approval {
+  id: string;
+  tenant: string;
+  payment_id: string;
+  amount_paise: number;
+  tier: "standard" | "senior";
+  reason: string;
+  created_at: string;
+  source: { kind: "sim" | "event"; id: string; title: string };
+  state: "pending" | "approved" | "rejected";
+  decision: { by: string; note: string; at: string } | null;
+  audit: { hash: string } | null;
+}
+export interface ApprovalsFeed { via: string; configured: boolean; approvals: Approval[] }
+export interface ReportMeta {
+  generated_at: string;
+  ok: boolean;
+  first_bad_seq: number | null;
+  entries_total: number;
+  entries_listed: number;
+  head: string;
+  blocked: number;
+  approvals: Record<string, number>;
+}
+export interface ReportFeed { via: string; configured: boolean; report: ReportMeta | null }

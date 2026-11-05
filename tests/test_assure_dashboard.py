@@ -137,6 +137,15 @@ def test_the_simulator_api_enforces_roles_limits_and_masking_and_matches_the_pyt
     assert "all checks passed" in res.stdout
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_approvals_api_and_report_download_enforce_roles_first_decision_wins_and_least_privilege(built):
+    res = subprocess.run(
+        ["node", str(ROOT / "tests" / "dashboard_approvals_check.js")], capture_output=True, text=True, timeout=120
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "all checks passed" in res.stdout
+
+
 def _build_module():
     import importlib.util
 

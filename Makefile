@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify dashboard-build live-probe live-seed live-seed-create live-sync-dry live-sync live-worker live-worker-once dashboard-user
+.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify audit-report guard-demo dashboard-build live-probe live-seed live-seed-create live-sync-dry live-sync live-worker live-worker-once dashboard-user
 
 setup:  ## create venv and install dependencies
 	python3 -m venv .venv
@@ -39,6 +39,12 @@ assure-gate:  ## same, and exit 1 if evals/assure/thresholds.json is violated
 
 audit-verify:  ## check the audit hash chain of the traces database
 	$(PY) -m acp.assure.audit verify
+
+audit-report:  ## export the worker's audit log as a report (HTML); open it and print to PDF
+	$(PY) -m acp.assure.report --db results/ingest-audit.db --format html --out results/audit-report.html
+
+guard-demo:  ## run the guard library in front of sample tools, no model needed
+	$(PY) examples/guard_quickstart.py
 
 dashboard-build:  ## rebuild the dashboard's assurance data and the login-protected data bundle
 	$(PY) scripts/build_dashboard.py

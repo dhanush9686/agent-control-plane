@@ -24,9 +24,11 @@ put_secret UPSTASH_REDIS_REST_URL   "${UPSTASH_REDIS_REST_URL:-${KV_REST_API_URL
 put_secret UPSTASH_REDIS_REST_TOKEN "${UPSTASH_REDIS_REST_TOKEN:-${KV_REST_API_TOKEN:-}}"
 put_secret RAZORPAY_KEY_ID          "${RAZORPAY_KEY_ID:-}"
 put_secret RAZORPAY_KEY_SECRET      "${RAZORPAY_KEY_SECRET:-}"
+put_secret ALERT_WEBHOOK_URL        "${ALERT_WEBHOOK_URL:-}"   # optional: Slack-style alerts
 echo "Variables (not secret):"
 gh variable set AWS_ROLE_ARN --body "$ROLE_ARN" >/dev/null && echo "  variable AWS_ROLE_ARN"
 gh variable set AWS_REGION   --body "$REGION"   >/dev/null && echo "  variable AWS_REGION"
+[ -z "${DASHBOARD_URL:-}" ] || { gh variable set DASHBOARD_URL --body "$DASHBOARD_URL" >/dev/null && echo "  variable DASHBOARD_URL"; }
 echo
 echo "Done. Next: deploy infra/github-oidc-bedrock.yaml if you have not, then run the 'live-worker' workflow once by hand."
 echo "Optional (instant worker start): add GITHUB_DISPATCH_TOKEN and GITHUB_REPO to Vercel; see docs/HOSTED_WORKER.md."

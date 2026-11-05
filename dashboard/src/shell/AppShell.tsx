@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 import clsx from "clsx";
-import { Activity, BookOpenCheck, FlaskRound, Radio, UserCog, Boxes, FlaskConical, Gauge, LayoutDashboard, ListChecks, LogOut, Menu, Moon, ScrollText, ShieldCheck, Sun, Swords, Workflow, X } from "lucide-react";
+import { Activity, BookOpenCheck, ClipboardCheck, FlaskRound, Radio, UserCog, Boxes, FlaskConical, Gauge, LayoutDashboard, ListChecks, LogOut, Menu, Moon, ScrollText, ShieldCheck, Sun, Swords, Workflow, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useData } from "@/lib/data";
 import { MeProvider, useMe } from "@/lib/me";
@@ -14,6 +14,7 @@ const NAV = [
     { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
     { to: "/app/live", label: "Live check", icon: Activity, live: true },
     { to: "/app/events", label: "Live events", icon: Radio },
+    { to: "/app/approvals", label: "Approvals", icon: ClipboardCheck },
     { to: "/app/runs", label: "Runs", icon: ListChecks },
   ] },
   { group: "Evidence", items: [
