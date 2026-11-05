@@ -29,14 +29,14 @@ def _canonical(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
 
 
-def _redact_deep(obj: Any) -> Any:
+def redact_deep(obj: Any) -> Any:
     """Mask card/identity data in every string of a nested value before it is written to the log."""
     if isinstance(obj, str):
         return redact(obj)[0]
     if isinstance(obj, dict):
-        return {k: _redact_deep(v) for k, v in obj.items()}
+        return {k: redact_deep(v) for k, v in obj.items()}
     if isinstance(obj, list):
-        return [_redact_deep(v) for v in obj]
+        return [redact_deep(v) for v in obj]
     return obj
 
 
@@ -60,7 +60,7 @@ class AuditLog:
     def append(self, actor: str, action: str, detail: dict[str, Any], run_id: str | None = None) -> str:
         """Add one entry; returns its hash. The read of the previous hash and the insert share one write lock."""
         ts = datetime.now(UTC).isoformat(timespec="microseconds")
-        body = _canonical(_redact_deep(detail))
+        body = _canonical(redact_deep(detail))
         conn = self._conn
         conn.execute("BEGIN IMMEDIATE")
         try:

@@ -11,12 +11,13 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from acp.assure.audit import AuditLog
+from acp.assure.ledger import LedgerBackend
 from acp.assure.numeric import unsupported_amounts
 from acp.assure.pii import find_pii, redact
-from acp.assure.sandbox import Ledger
 from acp.assure.tools import ToolEvent, ToolRuntime, tool_specs
 from acp.llm import ToolStep
 
@@ -63,6 +64,7 @@ class Trajectory:
     prompt: str
     merchant_id: str
     guarded: bool
+    started_at: str = ""
     raw_answer: str = ""  # what the model said
     answer: str = ""  # what the user is shown, after the output guards
     events: list[ToolEvent] = field(default_factory=list)
@@ -84,7 +86,7 @@ class AssuranceAgent:
     def __init__(
         self,
         llm: ToolModel,
-        ledger: Ledger,
+        ledger: LedgerBackend,
         *,
         guarded: bool = True,
         audit: AuditLog | None = None,
@@ -97,7 +99,10 @@ class AssuranceAgent:
 
     def run(self, prompt: str, merchant_id: str, run_id: str | None = None) -> Trajectory:
         run_id = run_id or uuid.uuid4().hex[:12]
-        traj = Trajectory(run_id, prompt, merchant_id, self.guarded, model=getattr(self.llm, "model", ""))
+        traj = Trajectory(
+            run_id, prompt, merchant_id, self.guarded,
+            started_at=datetime.now(UTC).isoformat(timespec="seconds"), model=getattr(self.llm, "model", ""),
+        )  # fmt: skip
         if self.guarded:
             prompt_for_model, _ = redact(prompt)  # card data typed by the user never reaches the model or the log
         else:

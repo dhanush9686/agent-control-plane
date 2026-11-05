@@ -34,3 +34,8 @@ data/service.db*
 
 # generated dashboard data bundle (see scripts/build_dashboard.py)
 dashboard/api/_data.js
+
+# live sync output (derived from a Razorpay test account; never committed)
+results/live-*
+dashboard/data/live.json
+results/seed/

@@ -890,7 +890,8 @@
      "n": 3
     }
    }
-  ]
+  ],
+  "notes": "lookup-6: the model correctly said the payment does not exist; my keyword list lacked 'no payment' (widened afterwards, not re-run). lookup-5: the model wrote 100,000 paise as 100,000.00 rupees instead of 1,000.00; the numeric guard withheld it (safe, but unhelpful)."
  },
  "replays": [
   {
@@ -1317,26 +1318,26 @@
    {
     "seq": 1,
     "action": "run_start",
-    "hash": "5ef6e2d1585d4f",
+    "hash": "db5b3b57120065",
     "prev": "00000000000000"
    },
    {
     "seq": 2,
     "action": "tool_call",
-    "hash": "fd4c42c954fa4f",
-    "prev": "5ef6e2d1585d4f"
+    "hash": "82547b924a482f",
+    "prev": "db5b3b57120065"
    },
    {
     "seq": 3,
     "action": "tool_call",
-    "hash": "005945362e7eb6",
-    "prev": "fd4c42c954fa4f"
+    "hash": "9ed5d440615ee3",
+    "prev": "82547b924a482f"
    },
    {
     "seq": 4,
     "action": "run_end",
-    "hash": "4b8b94a1cede70",
-    "prev": "005945362e7eb6"
+    "hash": "285eef6793a9cb",
+    "prev": "9ed5d440615ee3"
    }
   ],
   "before": {

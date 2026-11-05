@@ -120,8 +120,7 @@ def run_case(case: dict[str, Any], guarded: bool, audit: AuditLog | None = None)
     bad = [k for k in (*CRITICAL, "unsupported_amount") if effective[k]]
     refunds = [
         {"id": r.id, "payment_id": r.payment_id, "amount_paise": r.amount_paise, "status": r.status}
-        for r in ledger.refunds.values()
-        if r.id.startswith("rfnd_N")
+        for r in ledger.new_refunds()
     ]
     return {
         "mode": "guarded" if guarded else "unguarded",

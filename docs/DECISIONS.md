@@ -109,3 +109,21 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 - **Cost of this choice:** the grounding judge and the golden-set machinery were reusable for a payments corpus; if a
   documents eval is wanted later it has to be rebuilt (or restored from `2c77257`). The `eval_runs` / `eval_results`
   tables stay in the schema (no migration), unused.
+
+## 25. Live data from a Razorpay test account, published to Redis
+- **Why:** the dashboard was a snapshot built offline. Production merchant data is neither obtainable nor wanted, so
+  the honest "real" source is a payment provider's **test mode** (real API shapes, fake money) plus real model decisions.
+- **Read-only by construction:** the adapter (`acp/assure/razorpay.py`) can only GET, refuses non-test keys, copies a
+  field whitelist (no email, phone, VPA, card ids, raw JSON), and keeps refund requests in an in-memory overlay that is
+  never sent to Razorpay. Seeding is a separate module that can only `POST /orders` and defaults to a dry run.
+- **Ledger protocol:** the agent, policy and scorer now depend on `LedgerBackend`, so the synthetic sandbox and the
+  Razorpay adapter run the same code. Scenarios for real data are generated from the snapshot, with expected figures
+  read from it, so there is nothing to hand-maintain.
+- **Redis as a noticeboard:** a sync writes with a write token that exists only where the sync runs; the dashboard
+  function uses only a read-only token, only read commands, and only after the login. A test fails if the dashboard
+  could use the write token.
+- **Honesty:** tenancy is emulated with notes tags; settlements may be unavailable in test mode; capture is periodic;
+  every provenance line is shown on the Live tab.
+- **Verified so far:** the offline tests, the Node tests and a read-only run against the real test account (keys valid,
+  account empty). **Not yet verified:** a sync on seeded data, publishing to a real Upstash database, and how the
+  deployed page looks on live data.

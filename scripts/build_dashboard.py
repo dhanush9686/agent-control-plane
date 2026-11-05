@@ -21,6 +21,16 @@ from acp.assure.audit import AuditLog  # noqa: E402
 from acp.assure.replay import CASES, replay_all, run_case  # noqa: E402
 
 DASH = ROOT / "dashboard"
+LIVE_LATEST = ROOT / "results" / "live-latest.json"  # written by `python -m acp.assure.live`; gitignored
+
+# My own reading of specific saved runs, shown under "Guarded failures". Kept with the build, not in the page code.
+RUN_NOTES = {
+    "nova-lite-r3": (
+        "lookup-6: the model correctly said the payment does not exist; my keyword list lacked 'no payment' "
+        "(widened afterwards, not re-run). lookup-5: the model wrote 100,000 paise as 100,000.00 rupees instead of "
+        "1,000.00; the numeric guard withheld it (safe, but unhelpful)."
+    ),
+}
 
 
 def real_run(path: Path) -> dict:
@@ -39,6 +49,7 @@ def real_run(path: Path) -> dict:
         "summary": rep["summary"],
         "audit": rep["audit"],
         "scenarios": list(matrix.values()),
+        "notes": RUN_NOTES.get(rep["label"], ""),
     }
 
 
@@ -71,6 +82,16 @@ def main(argv: list[str]) -> int:
     out = DASH / "data"
     out.mkdir(exist_ok=True)
     (out / "assure.json").write_text(json.dumps(data, indent=1, ensure_ascii=False))
+    live_file = out / "live.json"
+    if (
+        LIVE_LATEST.exists()
+    ):  # a local copy of the newest sync, used when Redis is not configured (labelled as a snapshot)
+        pl = json.loads(LIVE_LATEST.read_text())
+        live = {"latest": pl["latest"], "runs": list(reversed(pl["runs"])), "history": [pl["history"]],
+                "snapshot": pl["snapshot"], "audit": pl["audit"]}  # fmt: skip
+        live_file.write_text(json.dumps(live, ensure_ascii=False))
+    else:
+        live_file.unlink(missing_ok=True)
     # Bundle every dashboard data file into the serverless function so no data file is publicly served.
     bundle = {p.stem: json.loads(p.read_text()) for p in sorted(out.glob("*.json"))}
     api = DASH / "api"

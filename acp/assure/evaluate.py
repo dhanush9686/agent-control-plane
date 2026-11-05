@@ -14,6 +14,7 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ import yaml
 from acp import store
 from acp.assure.agent import AssuranceAgent
 from acp.assure.audit import AuditLog
+from acp.assure.ledger import LedgerBackend
 from acp.assure.sandbox import Ledger
 from acp.assure.scoring import ALL_KINDS, CRITICAL, Scored, score
 from acp.config import ROOT, Settings, bedrock_profile_prefix
@@ -145,22 +147,39 @@ def run_suite(
     audit: AuditLog | None,
     pause: float = 0.0,
     log: Any = print,
+    ledger_factory: Callable[[], LedgerBackend] = Ledger,
+    max_cost_usd: float | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, list[Scored]]:
+    """Run every scenario in every mode.
+
+    `ledger_factory` makes a fresh ledger per run (a refund in one scenario must not leak into the next). With
+    `max_cost_usd`, stop cleanly once the estimated spend passes it and record that in `meta`.
+    """
     out: dict[str, list[Scored]] = {m: [] for m in modes}
+    spent = 0.0
     for sc in scenarios:
         for mode in modes:
             for rep in range(repeats):
-                ledger = Ledger()  # fresh every run: a refund in one scenario must not leak into the next
+                if max_cost_usd is not None and spent >= max_cost_usd:
+                    if meta is not None:
+                        meta.update(aborted=True, reason=f"spend cap ${max_cost_usd:.2f} reached", cost_usd=spent)
+                    return out
+                ledger = ledger_factory()
                 agent = AssuranceAgent(
                     llm, ledger, guarded=(mode == "guarded"), audit=audit if mode == "guarded" else None
                 )
                 traj = agent.run(sc["prompt"], sc.get("merchant", "m_acme"), run_id=f"{sc['id']}-{mode[0]}{rep}")
                 cost = settings.cost_usd(traj.input_tokens, traj.output_tokens, traj.model or None)
+                spent += cost
                 s = score(traj, sc, ledger, cost)
+                s.mode = mode
                 out[mode].append(s)
                 log(f"  {sc['id']:<12} {mode:<9} {'PASS' if s.passed else 'FAIL'}  {'; '.join(s.failed_checks)[:110]}")
                 if pause:
                     time.sleep(pause)
+    if meta is not None:
+        meta.update(aborted=False, cost_usd=spent)
     return out
 
 

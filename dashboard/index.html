@@ -22,12 +22,13 @@
   </div>
 </header>
 <nav class="tabs" role="tablist" aria-label="Views">
-  <button role="tab" id="tab-results" aria-controls="main" data-view="results">Results</button>
+  <button role="tab" id="tab-live" aria-controls="main" data-view="live">Live</button>
+  <button role="tab" id="tab-results" aria-controls="main" data-view="results">Saved run</button>
   <button role="tab" id="tab-replay" aria-controls="main" data-view="replay">Attack replay</button>
   <button role="tab" id="tab-audit" aria-controls="main" data-view="audit">Audit log</button>
 </nav>
 <main id="main" tabindex="-1" aria-live="polite"><p class="muted">Loading data…</p></main>
-<footer>Saved results from the synthetic payments sandbox. Cost is an estimate from a price table.</footer>
+<footer>Test-mode and synthetic data only. Cost is an estimate from a price table.</footer>
 <script src="app.js" defer></script>
 </body>
 </html>

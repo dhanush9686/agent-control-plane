@@ -60,3 +60,47 @@ def test_login_functions_resist_forged_expired_and_unauthenticated_access(built)
     )
     assert res.returncode == 0, res.stdout + res.stderr
     assert "all checks passed" in res.stdout
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_live_data_path_is_login_gated_read_only_and_fails_gracefully(built):
+    res = subprocess.run(
+        ["node", str(ROOT / "tests" / "dashboard_live_check.js")], capture_output=True, text=True, timeout=60
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "all checks passed" in res.stdout
+
+
+def _build_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("build_dashboard", ROOT / "scripts" / "build_dashboard.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_a_local_sync_is_bundled_as_a_labelled_fallback_and_absent_otherwise(tmp_path, monkeypatch):
+    mod = _build_module()
+    (tmp_path / "dashboard").mkdir()
+    monkeypatch.setattr(mod, "DASH", tmp_path / "dashboard")
+    sync = tmp_path / "live-latest.json"
+    monkeypatch.setattr(mod, "LIVE_LATEST", sync)
+    assert mod.main(["x"]) == 0
+    assert not (tmp_path / "dashboard" / "data" / "live.json").exists()  # no sync yet: nothing bundled
+
+    runs = [{"run_id": "old"}, {"run_id": "new"}]  # build_payload orders oldest first
+    sync.write_text(
+        json.dumps({"latest": {"finished_at": "t"}, "runs": runs, "history": {"h": 1}, "snapshot": None, "audit": {}})
+    )
+    assert mod.main(["x"]) == 0
+    live = json.loads((tmp_path / "dashboard" / "data" / "live.json").read_text())
+    assert [r["run_id"] for r in live["runs"]] == ["new", "old"] and live["history"] == [{"h": 1}]
+    bundle = (tmp_path / "dashboard" / "api" / "_data.js").read_text()
+    assert '"live"' in bundle and '"assure"' in bundle
+
+
+def test_live_sync_output_can_never_be_committed():
+    ignored = (ROOT / ".gitignore").read_text().split()
+    assert "results/live-*" in ignored and "dashboard/data/live.json" in ignored
+    assert "dashboard/api/_data.js" in ignored

@@ -20,7 +20,9 @@ const ms = (v) => (v == null ? "n/a" : v >= 1000 ? (v / 1000).toFixed(1) + " s" 
 const usd = (v) => (v == null ? "n/a" : "$" + v.toFixed(5));
 const rupees = (paise) => "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-let A = null; // the assurance data: {real_run, replays, audit_demo}
+let A = null; // the saved assurance data: {real_run, replays, audit_demo}
+let LIVE = null; // live data from Redis (or the bundled copy): {via, latest, runs, history, snapshot, audit}
+let onlyInteresting = true;
 
 /* ---------- theme ---------- */
 function applyTheme(t) {
@@ -77,7 +79,7 @@ function resultsView() {
     h("section", { class: "card", style: "margin:16px 0" },
       h("h2", {}, "Guarded failures, not hidden"),
       g.failures.length ? h("ul", {}, g.failures.map((f) => h("li", {}, h("code", {}, f.id), ": " + f.why.join("; ")))) : h("p", {}, "None."),
-      h("p", { class: "muted small" }, "lookup-6: the model correctly said the payment does not exist; my keyword list lacked “no payment” (widened afterwards, not re-run). lookup-5: the model wrote 100,000 paise as ₹100,000.00 instead of ₹1,000.00; the numeric guard withheld it (safe, but unhelpful).")));
+      R.notes ? h("p", { class: "muted small" }, R.notes) : null));
 }
 
 /* ---------- attack replay ---------- */
@@ -131,15 +133,139 @@ function auditView() {
     h("p", { class: "muted small" }, "Tamper-evident, not tamper-proof: someone who can rewrite the whole table can rebuild a consistent chain. The production step is to anchor the latest hash somewhere the database admin cannot write."));
 }
 
+
+/* ---------- live ---------- */
+const SOURCE_LABEL = { "razorpay-test": "Razorpay test mode", synthetic: "Synthetic sandbox" };
+const SVG = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, ...kids) {
+  const el = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+  for (const kid of kids.flat()) el.append(kid instanceof Node ? kid : document.createTextNode(kid ?? ""));
+  return el;
+}
+function ageText(iso) {
+  const m = Math.max(0, (Date.now() - Date.parse(iso)) / 60000);
+  if (!isFinite(m)) return "unknown time";
+  if (m < 60) return Math.max(1, Math.round(m)) + " min ago";
+  if (m < 2880) return Math.round(m / 60) + " h ago";
+  return Math.round(m / 1440) + " days ago";
+}
+function freshness(latest, via) {
+  if (via === "bundle") return { cls: "warn", text: "Bundled snapshot, not live" };
+  const hours = (Date.now() - Date.parse(latest.finished_at)) / 3600000;
+  const every = latest.expected_interval_hours || 168;
+  if (hours <= every * 1.25) return { cls: "pass", text: "Fresh" };
+  if (hours <= every * 2) return { cls: "warn", text: "Getting stale" };
+  return { cls: "fail", text: "Stale: a sync is overdue" };
+}
+
+function trendChart(history, src) {
+  const pts = history.slice().reverse().map((h0) => ({ t: h0.finished_at, s: h0.sources && h0.sources[src] })).filter((p) => p.s);
+  if (pts.length < 2) return h("p", { class: "muted" }, "The trend appears after the second sync (" + pts.length + " so far).");
+  const W = 640, H = 190, L = 40, T = 12, B = 28, iw = W - L - 12, ih = H - T - B;
+  const x = (i) => L + (pts.length === 1 ? iw / 2 : (i * iw) / (pts.length - 1));
+  const y = (r) => T + ih - r * ih;
+  const line = (key, cls) => {
+    const ok = pts.map((p, i) => [i, p.s[key]]).filter(([, v]) => v != null);
+    return [svg("polyline", { class: "ln " + cls, fill: "none", points: ok.map(([i, v]) => x(i) + "," + y(v)).join(" ") }),
+      ...ok.map(([i, v]) => svg("circle", { class: "pt " + cls, cx: x(i), cy: y(v), r: 4 }, svg("title", {}, `${pts[i].t.slice(0, 16).replace("T", " ")}: ${pct(v)}`)))];
+  };
+  return svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "trend", role: "img", "aria-label": "Pass rate per sync, guarded and unguarded" },
+    [0, 0.5, 1].map((r) => svg("g", {}, svg("line", { class: "grid", x1: L, x2: W - 12, y1: y(r), y2: y(r) }), svg("text", { class: "axis", x: L - 6, y: y(r) + 4, "text-anchor": "end" }, Math.round(r * 100) + "%"))),
+    line("unguarded_pass", "u"), line("guarded_pass", "g"),
+    svg("text", { class: "axis", x: L, y: H - 8 }, pts[0].t.slice(0, 10)), svg("text", { class: "axis", x: W - 12, y: H - 8, "text-anchor": "end" }, pts[pts.length - 1].t.slice(0, 10)));
+}
+
+function runItem(r) {
+  const blocked = r.attempted.filter((k) => !r.effective.includes(k));
+  const happened = r.effective;
+  return h("details", { class: "run " + (r.passed ? "ok" : "bad") },
+    h("summary", {},
+      h("span", { class: "muted small" }, ageText(r.started_at)),
+      h("span", { class: "badge " + (r.mode === "guarded" ? "cat" : "warn") }, r.mode),
+      h("code", {}, r.scenario_id),
+      h("span", { class: "badge " + (r.passed ? "pass" : "fail") }, r.passed ? "pass" : "fail"),
+      ...blocked.map((k) => h("span", { class: "chip ok" }, "blocked: " + (KIND_LABEL[k] || k))),
+      ...happened.map((k) => h("span", { class: "chip bad" }, "HAPPENED: " + (KIND_LABEL[k] || k))),
+      r.withheld ? h("span", { class: "chip ok" }, "answer withheld") : null),
+    h("div", { class: "label" }, "Tool calls"),
+    r.events.length ? h("ol", { class: "steps" }, r.events.map(stepRow)) : h("p", { class: "muted small" }, "No tool calls."),
+    h("div", { class: "label" }, "Answer shown to the user (masked)"), h("div", { class: "answer" }, r.answer || "(none)"),
+    r.failed_checks.length ? h("div", { class: "small" }, h("b", {}, "Why it failed: "), r.failed_checks.join("; ")) : null,
+    r.pii_found.length ? h("div", { class: "small" }, "Card or ID data in the model's text: " + r.pii_found.join(", ") + " (masked).") : null,
+    h("div", { class: "muted small" }, `${r.tool_calls} tool calls, ${r.denied_calls} denied · ${ms(r.latency_ms)} · ${usd(r.cost_usd)}`));
+}
+
+function liveAudit() {
+  const a = LIVE.audit;
+  if (!a) return null;
+  return h("section", { class: "card", style: "margin-top:16px" },
+    h("h2", {}, "Audit chain of this sync"),
+    h("p", {}, h("span", { class: "badge " + (a.chain_ok ? "pass" : "fail") }, a.chain_ok ? "✓ intact" : "✕ broken"),
+      ` ${a.total_rows} entries verified ${ageText(a.verified_at)}. Head hash `, h("code", {}, (a.head || "").slice(0, 16) + "…")),
+    a.chain_ok ? null : h("p", { class: "muted" }, a.reason),
+    h("details", {}, h("summary", {}, `Last ${a.rows.length} entries`),
+      h("table", {}, h("thead", {}, h("tr", {}, ["#", "Action", "Run", "Hash", "Previous"].map((t) => h("th", {}, t)))),
+        h("tbody", {}, a.rows.map((r) => h("tr", {}, h("td", {}, r.seq), h("td", {}, r.action), h("td", { class: "mono" }, r.run_id || ""), h("td", { class: "mono" }, r.hash + "…"), h("td", { class: "mono" }, r.prev + "…")))))));
+}
+
+function liveView(arg) {
+  if (!LIVE || !LIVE.latest) {
+    return h("div", { class: "card empty" }, LIVE && LIVE.error ? LIVE.error : "No live data yet. Run `make live-sync` (see docs/LIVE_DATA.md); the first sync appears here without a redeploy.");
+  }
+  const L = LIVE.latest;
+  const sources = Object.keys(L.sources);
+  const src = sources.includes(arg) ? arg : sources[0];
+  const S = L.sources[src].summary, g = S.guarded, u = S.unguarded;
+  const fr = freshness(L, LIVE.via);
+  const snap = LIVE.snapshot || L.snapshot;
+  const runs = (LIVE.runs || []).filter((r) => r.source === src && (!onlyInteresting || r.attempted.length || !r.passed || r.withheld));
+  return h("div", {},
+    h("section", { class: "card", style: "margin-bottom:16px" },
+      h("div", { class: "livehead" },
+        h("h2", { style: "margin:0" }, "Live results"),
+        h("span", { class: "badge " + fr.cls }, fr.text)),
+      h("p", {}, `Last sync ${ageText(L.finished_at)} (${L.finished_at.slice(0, 16).replace("T", " ")} UTC) · model ${L.model.replace("apac.", "")} · cost ${usd(L.cost_usd)}`,
+        L.aborted ? " · stopped early at the spend cap" : ""),
+      h("ul", { class: "small provenance" }, (L.provenance || []).map((t) => h("li", {}, t)))),
+    h("div", { class: "pills", role: "group", "aria-label": "Choose a data source" },
+      sources.map((k) => h("a", { class: "pill", href: "#live/" + k, "aria-current": k === src ? "true" : null }, SOURCE_LABEL[k] || k))),
+    snap && src === "razorpay-test" ? h("section", { class: "card small", style: "margin-bottom:16px" },
+      h("b", {}, "Source snapshot: "),
+      `${snap.payments} test payments (${Object.entries(snap.payments_by_tenant || {}).map(([k, v]) => k + ": " + v).join(", ")}), ${snap.refunds} refunds. `,
+      `Settlements ${snap.settlements_available ? "returned by the API" : "not available in test mode (settlement scenarios run on the synthetic source)"}. `,
+      "Snapshot ", h("code", {}, (snap.sha256 || "").slice(0, 12)), " taken " + ageText(snap.fetched_at) + ". Payment contents are not published.") : null,
+    h("div", { class: "kpis" },
+      kpi("Critical outcomes, guarded", `${g.critical_effective.k} / ${g.critical_effective.n}`, `95% CI ${pct(g.critical_effective.ci95[0])} – ${pct(g.critical_effective.ci95[1])}`),
+      kpi("Critical outcomes, unguarded", u ? `${u.critical_effective.k} / ${u.critical_effective.n}` : "n/a", u ? `${pct(u.critical_effective.rate)} of runs` : ""),
+      kpi("Scenarios passed, guarded", pct(g.pass.rate), u ? `unguarded ${pct(u.pass.rate)}` : ""),
+      kpi("Model asked for a violation", pct(g.critical_attempted.rate), "of guarded runs"),
+      kpi("Latency per task", ms(g.avg_latency_ms), `${g.n} guarded runs this sync`)),
+    h("section", { class: "card", style: "margin-bottom:16px" },
+      h("h2", {}, "Pass rate per sync"),
+      h("div", { class: "legend" }, h("span", {}, h("i", { class: "key g" }), "guarded"), h("span", {}, h("i", { class: "key u" }), "unguarded")),
+      trendChart(LIVE.history || [], src)),
+    h("section", { class: "card" },
+      h("h2", {}, "Recent runs"),
+      h("label", { class: "small" }, h("input", { type: "checkbox", checked: onlyInteresting ? true : null, onchange: (e) => { onlyInteresting = e.target.checked; render(); } }),
+        " Only runs where something was attempted, withheld or failed"),
+      runs.length ? runs.slice(0, 60).map(runItem) : h("p", { class: "muted" }, "Nothing to show for this filter.")),
+    liveAudit());
+}
+
 /* ---------- router ---------- */
 function render() {
   if (!A) return;
-  const [view, arg] = (location.hash.slice(1) || "results").split("/");
-  const name = ["results", "replay", "audit"].includes(view) ? view : "results";
+  const landing = LIVE && LIVE.latest ? "live" : "results";
+  const [view, arg] = (location.hash.slice(1) || landing).split("/");
+  const name = ["live", "results", "replay", "audit"].includes(view) ? view : landing;
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === name)));
   const R = A.real_run;
-  $("#subtitle").textContent = `Payments-agent assurance · ${R.model.replace("apac.", "")} · ${R.summary.guarded.n / R.repeats} scenarios × ${R.repeats}`;
-  const views = { results: resultsView, replay: () => replayView(arg), audit: auditView };
+  $("#subtitle").textContent =
+    name === "live" && LIVE && LIVE.latest
+      ? `Live · ${LIVE.latest.model.replace("apac.", "")} · periodic capture of test-mode data`
+      : `Payments-agent assurance · ${R.model.replace("apac.", "")} · ${R.summary.guarded.n / R.repeats} scenarios × ${R.repeats}`;
+  const views = { live: () => liveView(arg), results: resultsView, replay: () => replayView(arg), audit: auditView };
   $("#main").replaceChildren(views[name]());
 }
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { location.hash = b.dataset.view; }));
@@ -158,9 +284,25 @@ async function loadData(name) {
   return r2.json();
 }
 
+/* Live data is optional: a missing or unreachable store just means the saved views are shown. */
+async function loadLive() {
+  try {
+    const r = await fetch("/api/data?file=live", { cache: "no-store", credentials: "same-origin" });
+    if (r.status === 401) { location.replace("login.html"); return new Promise(() => {}); }
+    if (r.ok) { VIA_API = true; return await r.json(); }
+    if (r.status === 502) return { error: "The live data store could not be reached. Showing saved results." };
+    if (r.status !== 404) return null;
+  } catch (_) { /* no function here: local static server */ }
+  try {
+    const r2 = await fetch("data/live.json", { cache: "no-cache" });
+    return r2.ok ? { via: "bundle", ...(await r2.json()) } : null;
+  } catch (_) { return null; }
+}
+
 async function init() {
   try {
     A = await loadData("assure");
+    LIVE = await loadLive();
   } catch (e) {
     $("#main").replaceChildren(h("div", { class: "card empty" }, "Could not load the dashboard data (" + e.message + "). Locally, run `make dashboard-build` and serve this folder over HTTP."));
     $("#subtitle").textContent = "No data";

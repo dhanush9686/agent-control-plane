@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Seed test payments</title>
+<style>
+  body { font: 15px system-ui; margin: 24px; max-width: 960px }
+  td, th { padding: 6px 10px; border-bottom: 1px solid #ddd; text-align: left }
+</style>
+<h1>Seed Razorpay TEST payments</h1>
+<p>
+  Test mode only; no real money moves. For each row click <b>Pay</b>, pick a payment method, and finish on the
+  <b>mock bank page</b> by clicking the button named in the last column. A payment is only recorded once you click
+  Success or Failure there.
+</p>
+<p>
+  <b>Easiest:</b> choose <b>Netbanking</b>, pick any bank, and click <b>Success</b> or <b>Failure</b> on the mock
+  bank page. No card number is needed. If you prefer <b>Card</b>, use a <i>domestic</i> test card: Razorpay's docs list
+  Visa <code>4718 6091 0820 4366</code> (any future expiry, any CVV). Razorpay's checkout rejects international test
+  cards on this account with "International cards are not supported". If a card is refused, use Netbanking instead.
+</p>
+<table>
+  <tr><th>Order</th><th>Tenant</th><th>Amount</th><th>Purpose</th><th>How to finish</th><th></th></tr>
+  __ROWS__
+</table>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const KEY = __KEY__, SEED = __SEED__, ORDERS = __ORDERS__;
+const say = (id, text) => { document.getElementById("r-" + id).textContent = text; };
+document.querySelectorAll("button[data-order]").forEach((b) => b.addEventListener("click", () => {
+  const o = ORDERS.find((x) => x.order_id === b.dataset.order);
+  const notes = { tenant: o.tenant, seed: SEED };
+  if (o.memo) notes.memo = o.memo;
+  const rzp = new Razorpay({
+    key: KEY, order_id: o.order_id, amount: o.amount, currency: "INR", name: "ACP assurance seed", notes,
+    prefill: { contact: "9000090000", email: "seed@example.com" },
+    handler: (r) => say(o.order_id, "paid: " + r.razorpay_payment_id),
+  });
+  rzp.on("payment.failed", (r) => say(o.order_id, "failed: " + (r.error && r.error.code)));
+  rzp.open();
+}));
+</script>
+</html>

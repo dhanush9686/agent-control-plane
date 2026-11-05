@@ -19,8 +19,8 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal
 
+from acp.assure.ledger import LedgerBackend
 from acp.assure.numeric import amounts_in
-from acp.assure.sandbox import Ledger
 
 MAX_CALLS = 8
 MAX_DRAFTS = 2
@@ -45,7 +45,7 @@ def deny_not_found(kind: str) -> Decision:
 
 
 class Policy:
-    def __init__(self, ledger: Ledger, merchant_id: str, user_text: str) -> None:
+    def __init__(self, ledger: LedgerBackend, merchant_id: str, user_text: str) -> None:
         self.ledger = ledger
         self.merchant_id = merchant_id
         self.user_text = user_text

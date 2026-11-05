@@ -15,9 +15,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from acp.assure.audit import AuditLog
+from acp.assure.ledger import LedgerBackend
 from acp.assure.pii import redact
 from acp.assure.policy import Policy
-from acp.assure.sandbox import Ledger
 from acp.llm import inline_json_schema
 
 _ID = r"^[A-Za-z]{3,5}_[A-Za-z0-9]{1,16}$"
@@ -90,7 +90,7 @@ class ToolEvent:
 class ToolRuntime:
     def __init__(
         self,
-        ledger: Ledger,
+        ledger: LedgerBackend,
         merchant_id: str,
         user_text: str,
         *,

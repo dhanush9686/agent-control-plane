@@ -71,3 +71,20 @@ details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
 .step.denied { background: var(--bad-bg); } .step code { word-break: break-all; }
 .outcome { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-weight: 600; } .outcome.ok { background: var(--ok-bg); color: var(--ok); } .outcome.bad { background: var(--bad-bg); color: var(--bad); }
 tr.edited td { background: var(--bad-bg); } .mono, code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* live view */
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.livehead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.provenance { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.bad { background: var(--bad-bg); color: var(--bad); }
+details.run { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin: 8px 0; background: var(--surface); }
+details.run.bad { border-left: 4px solid var(--bad); } details.run.ok { border-left: 4px solid var(--ok); }
+details.run summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 500; }
+.trend { width: 100%; height: auto; max-height: 220px; } .trend .grid { stroke: var(--border); } .trend .axis { fill: var(--muted); font-size: 11px; }
+.trend .ln { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+.trend .ln.g { stroke: var(--ok); } .trend .ln.u { stroke: var(--bad); }
+.trend .pt.g { fill: var(--ok); stroke: var(--surface); } .trend .pt.u { fill: var(--bad); stroke: var(--surface); }
+details.run .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 12px 0 4px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin: 6px 0; }
+.legend .key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; } .legend .key.g { background: var(--ok); } .legend .key.u { background: var(--bad); }

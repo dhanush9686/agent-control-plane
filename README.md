@@ -5,7 +5,7 @@ A reliability and assurance layer for AI agents in payments. It does two things:
 1. **Assurance for agents that touch money:** a policy engine, card/ID masking, a numeric-fidelity check and a tamper-evident audit log sit between a tool-calling agent and a (synthetic) ledger, and a scenario suite measures what they are worth.
 2. **A traced document service:** upload a long PDF (a regulation, a circular, a policy), ask questions, and get answers with page citations, behind API-key auth, quotas and a spend cap.
 
-- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). Measured results, an attack-replay sandbox and the audit-chain demo. All of it is saved output; the live suite and the document service run locally and need AWS credentials.
+- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). A **Live** tab fed by periodic syncs against a Razorpay *test-mode* account (see [docs/LIVE_DATA.md](docs/LIVE_DATA.md)), plus the measured saved run, an attack-replay sandbox and the audit-chain demo.
 - **Repo:** https://github.com/dhanush9686/agent-control-plane
 
 Everything here uses synthetic data or public/generated text, and the project is not affiliated with or used by any payment company. Everything reported below was measured on the real pipeline, with its caveats stated next to it.
@@ -174,12 +174,14 @@ Each question gets one `run_id`. OpenTelemetry spans wrap **every graph node** (
 | `make assure` / `make assure-gate` | Run the assurance suite on Bedrock (a few cents); the gate exits 1 if `evals/assure/thresholds.json` is violated |
 | `make audit-verify` | Verify the audit hash chain |
 | `make dashboard-build` | Rebuild the dashboard data and the login-protected bundle |
+| `make live-probe` / `live-seed` / `live-sync-dry` / `live-sync` | Check the Razorpay test account / plan its test orders / run a sync without publishing / run and publish one |
 | `make serve` | Preview the dashboard locally (the login exists only once deployed) |
 | `make serve-api` / `make create-user NAME=...` | The document service / mint an API key |
 | `make longdoc` | Retrieval benchmark on Pinecone (no LLM tokens) |
 
 ## Not built yet
 
+- Seeded Razorpay test payments and the first published live sync (the tooling and tests exist; the account is still empty).
 - A real payments-regulation corpus (for example RBI circulars) fetched and evaluated through the document service; the service has only been measured on a generated 410-page document.
 - The PII, numeric and audit controls inside the document service (they exist in the assurance layer).
 - A second model compared on the assurance suite, and a larger scenario set.

@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify dashboard-build
+.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify dashboard-build live-probe live-seed live-seed-create live-sync-dry live-sync
 
 setup:  ## create venv and install dependencies
 	python3 -m venv .venv
@@ -42,3 +42,18 @@ audit-verify:  ## check the audit hash chain of the traces database
 
 dashboard-build:  ## rebuild the dashboard's assurance data and the login-protected data bundle
 	$(PY) scripts/build_dashboard.py
+
+live-probe:  ## read-only check of the Razorpay TEST account (counts and field names only)
+	$(PY) scripts/razorpay_probe.py
+
+live-seed:  ## dry run: show the test orders that would be created in the Razorpay TEST account
+	$(PY) scripts/razorpay_seed.py
+
+live-seed-create:  ## create those test orders (a write to your TEST account; then pay them via the checkout page)
+	$(PY) scripts/razorpay_seed.py --create
+
+live-sync-dry:  ## full live sync without publishing (Bedrock cost: cents); writes results/live-latest.json
+	$(PY) -m acp.assure.live --dry-run
+
+live-sync:  ## full live sync and publish to Upstash Redis, then read it back to verify
+	$(PY) -m acp.assure.live
