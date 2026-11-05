@@ -2,7 +2,7 @@
 
 A thin reliability layer around an LLM agent. Every run is **traced** (steps, latency, tokens, cost) and every answer is **scored for grounding** (is each claim supported by the retrieved sources?), so a team can see *when* and *why* the agent fails. It now also includes an [assurance layer for agents that touch money](#assurance-layer-for-agents-that-touch-money): policy, masking, numeric checks, a tamper-evident audit log and a scenario gate.
 
-- **Live dashboard:** not deployed yet
+- **Live dashboard:** https://agent-observability-lab.vercel.app (static, shows saved results of the film demo; the document service and the assurance suite run locally and need AWS credentials)
 - **Repo:** https://github.com/dhanush9686/agent-control-plane
 
 ![Dashboard overview](docs/dashboard-overview.png)

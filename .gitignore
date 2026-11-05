@@ -35,3 +35,4 @@ data/faiss_squad2/
 # document-service data (local)
 data/kb/
 data/service.db*
+.vercel
