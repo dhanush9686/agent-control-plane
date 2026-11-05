@@ -9,6 +9,7 @@ difference in outcomes comes from enforcement, not from instructions.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -52,6 +53,20 @@ class ProposeRefund(BaseModel):
     reason: str = Field(max_length=200, description="Short reason given by the requester.")
 
 
+class SearchPolicy(BaseModel):
+    query: str = Field(min_length=3, max_length=200, description="The rule or regulation question, in plain words.")
+
+
+# Off unless an agent is built with policy_docs=True, so the measured benchmark's tool set does not change.
+OPTIONAL_TOOLS: dict[str, tuple[type[BaseModel], str]] = {
+    "search_policy": (
+        SearchPolicy,
+        "Look up short, cited notes on Indian payments rules (failed-transaction reversals, customer liability, "
+        "payment aggregator refunds, escrow and settlement, card-data storage). Use it for any question about rules or "
+        "regulations. If it returns nothing relevant, say the notes do not cover the question.",
+    ),
+}
+
 TOOLS: dict[str, tuple[type[BaseModel], str]] = {
     "get_payment": (GetPayment, "Look up one payment: amount, status, method, failure code, refunded amount."),
     "list_payments": (ListPayments, "List recent payments with a total, optionally only captured or failed ones."),
@@ -66,10 +81,11 @@ TOOLS: dict[str, tuple[type[BaseModel], str]] = {
 }
 
 
-def tool_specs() -> list[dict[str, Any]]:
+def tool_specs(policy_docs: bool = False) -> list[dict[str, Any]]:
+    tools = {**TOOLS, **(OPTIONAL_TOOLS if policy_docs else {})}
     return [
         {"toolSpec": {"name": n, "description": d, "inputSchema": {"json": inline_json_schema(m.model_json_schema())}}}
-        for n, (m, d) in TOOLS.items()
+        for n, (m, d) in tools.items()
     ]
 
 
@@ -97,8 +113,12 @@ class ToolRuntime:
         guarded: bool = True,
         audit: AuditLog | None = None,
         run_id: str | None = None,
+        on_event: Callable[[ToolEvent], None] | None = None,
+        policy_docs: bool = False,
     ) -> None:
+        self.policy_docs = policy_docs
         self.ledger, self.merchant_id, self.guarded = ledger, merchant_id, guarded
+        self.on_event = on_event  # called after each tool call, so a caller can stream progress
         self.policy = Policy(ledger, merchant_id, user_text)
         self.audit, self.run_id = audit, run_id
         self.events: list[ToolEvent] = []
@@ -108,6 +128,8 @@ class ToolRuntime:
     def call(self, name: str, raw_args: dict[str, Any]) -> tuple[ToolEvent, dict[str, Any]]:
         ev = self._dispatch(name, raw_args)
         self.events.append(ev)
+        if self.on_event:
+            self.on_event(ev)
         if self.audit:
             self.audit.append(
                 self.merchant_id,
@@ -118,14 +140,15 @@ class ToolRuntime:
         return ev, ev.payload
 
     def _dispatch(self, name: str, raw: dict[str, Any]) -> ToolEvent:
-        if name not in TOOLS:
+        known = {**TOOLS, **(OPTIONAL_TOOLS if self.policy_docs else {})}
+        if name not in known:
             return self._deny(name, raw, "unknown_tool", f"There is no tool named {name}.")
         if self.guarded:
             budget = self.policy.check_budget()
             if not budget.allow:
                 return self._deny(name, raw, budget.code, budget.reason)
         try:
-            args = TOOLS[name][0].model_validate(raw or {})
+            args = known[name][0].model_validate(raw or {})
         except ValidationError as e:
             return self._deny(
                 name,
@@ -181,6 +204,12 @@ class ToolRuntime:
         return blocked
 
     # ----- tools
+    def _search_policy(self, a: SearchPolicy, raw: dict[str, Any]) -> ToolEvent:
+        from acp.assure.policy_docs import search
+
+        found = search(a.query)
+        return self._ok("search_policy", raw, None, {"results": found, "count": len(found)})
+
     def _get_payment(self, a: GetPayment, raw: dict[str, Any]) -> ToolEvent:
         p = self.ledger.payment(a.payment_id)
         if p is None:

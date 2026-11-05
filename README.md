@@ -53,7 +53,9 @@ make assure-gate   # exit 1 if evals/assure/thresholds.json is violated (0 criti
 make audit-verify  # verify the audit hash chain
 ```
 
-**Dashboard and login.** The Assurance tab shows the results above, a side-by-side **attack replay** (a deterministic scripted attacker run through the real policy engine with guards off and on; it is not a model) and a live demonstration of the audit chain catching an edited row. The deployed dashboard sits behind a password: serverless functions (`dashboard/api/`) check `DASHBOARD_PASSWORD`, set an HttpOnly, Secure, SameSite=Strict cookie holding an expiring HMAC of the password, and serve the data only to a visitor who has one (the data is bundled into the function, not served as static files). It fails closed when no password is set. Honest limits: one shared password, no per-user accounts, no cross-instance rate limiting (a fixed delay after a wrong guess), and the page shell (HTML/JS, no data) is public. It protects saved demo data from casual visitors; it is not an identity system. Rebuild with `make dashboard-build`, then `vercel env add DASHBOARD_PASSWORD production` and `vercel --prod` from `dashboard/`.
+**Dashboard and login.** The Assurance tab shows the results above, a side-by-side **attack replay** (a deterministic scripted attacker run through the real policy engine with guards off and on; it is not a model) and a live demonstration of the audit chain catching an edited row. The deployed dashboard sits behind a sign-in. Each person has their own account (an email and a salted scrypt-hashed password stored in Redis, created with `make dashboard-user`); a successful sign-in sets an HttpOnly, Secure, SameSite=Strict cookie holding a signed, expiring session, and the data is served only to a visitor who has one (the data is bundled into the function, not served as static files). Roles are `admin` and `viewer`; only admins can read the account register and the recent sign-in log. Five wrong passwords lock an account for 15 minutes; disabling an account ends its session within a minute. Until the first account exists, the old shared `DASHBOARD_PASSWORD` works so the first admin can be created, and it stops working once any account exists. It fails closed when nothing is configured. Honest limits: no single sign-on or multi-factor authentication, no cross-instance rate limiting beyond the per-account lockout, roles are only enforced for the account register (the Checkout button is hidden from nobody), and the page shell (landing page and JS, no data) is public. The site is a React, Vite, Tailwind and Motion app (landing page, sign-in, and a sidebar dashboard); Vercel builds it with `npm run build`. Rebuild the data with `make dashboard-build`, then `vercel --prod` from `dashboard/`. Create the first account with `make dashboard-user ARGS="add you@example.com --role admin"`.
+
+**Rules library.** `evals/assure/regulation_notes.yaml` holds short, paraphrased, cited notes on six RBI rules (failed-transaction reversals, customer liability, payment aggregator refunds, escrow and settlement, merchant onboarding, card-data storage), each saying what its source did not confirm. An agent built with `policy_docs=True` gets a `search_policy` tool for it, and its rupee figures go through the same numeric-fidelity guard as ledger figures. It is off by default, so the measured benchmark is unchanged. `python -m acp.assure.evaluate --suite regulation` runs eight questions about it (including two the notes cannot answer); that suite has **not been run against a model yet**, so there are no results to quote. Not legal advice.
 
 Not yet done: a second model compared on the same suite (the suite is what lets you test a model swap), tool-use through the document service, and a larger scenario set.
 
@@ -61,7 +63,7 @@ Not yet done: a second model compared on the same suite (the suite is what lets 
 
 Upload a PDF (tested on a 410-page one), ask questions, and get answers with **page citations**. It runs on **Amazon Bedrock**
 (Nova models + Titan embeddings) and **Pinecone**, behind a FastAPI service with API-key auth, quotas, a daily spend cap, and a
-chat page. Every question is traced by the observability layer described below. It is a general long-document service; pointing it at payments regulations (for example RBI circulars) is the intended use, and fetching such a corpus is not done yet.
+chat page. Every question is traced by the observability layer described below. It is a general long-document service and is separate from the assurance agent's small rules library above.
 
 ```mermaid
 flowchart LR
@@ -175,7 +177,10 @@ Each question gets one `run_id`. OpenTelemetry spans wrap **every graph node** (
 | `make audit-verify` | Verify the audit hash chain |
 | `make dashboard-build` | Rebuild the dashboard data and the login-protected bundle |
 | `make live-probe` / `live-seed` / `live-sync-dry` / `live-sync` | Check the Razorpay test account / plan its test orders / run a sync without publishing / run and publish one |
-| `make serve` | Preview the dashboard locally (the login exists only once deployed) |
+| `make live-worker` | Run the event worker: Razorpay webhook events are queued by the site, handled by the guarded agent here, and shown step by step on the Live events page |
+| `make live-worker-once` | Process what is queued, then exit |
+| `make dashboard-user ARGS="..."` | Add, list, disable or reset dashboard accounts (passwords are typed at a hidden prompt) |
+| `make serve` | Preview the dashboard locally (React + Vite; no login locally) |
 | `make serve-api` / `make create-user NAME=...` | The document service / mint an API key |
 | `make longdoc` | Retrieval benchmark on Pinecone (no LLM tokens) |
 

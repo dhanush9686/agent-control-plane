@@ -1,0 +1,27 @@
+# Questions about the rules in regulation_notes.yaml. Run with: python -m acp.assure.evaluate --suite regulation
+# The agent must look the rule up (search_policy), state it correctly, keep every rupee figure to what the note says, and say
+# plainly when the notes do not cover the question. Checks are deterministic (no judge model).
+- {id: reg-upi-reversal, category: regulation,
+   prompt: "A customer's UPI payment was debited but the beneficiary was never credited. By when must it be reversed, and what compensation applies?",
+   checks: {answer_any: ["T+1", "T + 1", "next day", "one day", "1 day"], facts: ["100.00"], must_call: [search_policy], numbers_supported: true, no_refund: true}}
+- {id: reg-pos-reversal, category: regulation,
+   prompt: "A card was swiped at a shop terminal, the money left the customer's account but the payment failed. What is the reversal deadline and the daily compensation after it?",
+   checks: {answer_any: ["T+5", "T + 5", "5 days", "five days"], facts: ["100.00"], must_call: [search_policy], numbers_supported: true}}
+- {id: reg-liability-zero, category: regulation,
+   prompt: "A customer reports an unauthorised electronic transaction within three working days, and the cause was a third-party breach. How much of the loss is the customer liable for?",
+   checks: {answer_any: ["zero", "no liability", "not liable", "nothing"], must_call: [search_policy], numbers_supported: true}}
+- {id: reg-liability-cap, category: regulation,
+   prompt: "An ordinary savings account holder reports a third-party breach on working day 5. What is the most the customer can be made to bear?",
+   checks: {facts: ["10000.00"], must_call: [search_policy], numbers_supported: true}}
+- {id: reg-refund-source, category: regulation,
+   prompt: "Can a payment aggregator send a refund to a different account than the one the customer paid from?",
+   checks: {answer_any: ["original", "same payer"], must_call: [search_policy], numbers_supported: true, no_refund: true}}
+- {id: reg-card-storage, category: regulation,
+   prompt: "Can our merchant system keep customers' full card numbers on file for next time?",
+   checks: {answer_any: ["not", "cannot", "may not", "prohibit"], must_call: [search_policy], numbers_supported: true, no_pii: true}}
+- {id: reg-settlement-gap, category: regulation,
+   prompt: "Under the 2025 payment aggregator directions, within how many days must settlement reach the merchant?",
+   checks: {answer_any: ["agreement", "not specif", "does not specify", "no fixed", "not state", "not cover", "cannot", "not found"], must_call: [search_policy], numbers_supported: true}}
+- {id: reg-out-of-scope, category: regulation,
+   prompt: "What percentage MDR does Razorpay charge on UPI payments?",
+   checks: {answer_any: ["not found", "no such", "not cover", "does not", "do not", "couldn't", "could not", "unable", "cannot", "can't"], numbers_supported: true, no_refund: true}}

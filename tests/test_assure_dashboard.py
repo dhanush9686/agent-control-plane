@@ -71,6 +71,56 @@ def test_the_live_data_path_is_login_gated_read_only_and_fails_gracefully(built)
     assert "all checks passed" in res.stdout
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_razorpay_webhook_verifies_signatures_dedupes_whitelists_and_the_feed_is_gated(built):
+    res = subprocess.run(
+        ["node", str(ROOT / "tests" / "dashboard_webhook_check.js")], capture_output=True, text=True, timeout=60
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "all checks passed" in res.stdout
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_personal_accounts_sign_in_lock_out_revoke_and_agree_with_the_python_hashes(built):
+    import json
+    import os
+
+    from acp.dashboard_users import hash_password
+
+    seed = [
+        {
+            "email": "ada@example.com",
+            "name": "Ada",
+            "role": "admin",
+            "disabled": False,
+            "password": "ada-long-password-1",
+        },
+        {
+            "email": "vic@example.com",
+            "name": "Vic",
+            "role": "viewer",
+            "disabled": False,
+            "password": "vic-long-password-2",
+        },
+        {
+            "email": "dee@example.com",
+            "name": "Dee",
+            "role": "viewer",
+            "disabled": True,
+            "password": "dee-long-password-3",
+        },
+    ]
+    for u in seed:
+        u["hash"] = hash_password(u["password"])
+        u["created_at"] = "2026-11-05T00:00:00+00:00"
+    res = subprocess.run(
+        ["node", str(ROOT / "tests" / "dashboard_users_check.js")],
+        capture_output=True, text=True, timeout=120, env={**os.environ, "ACP_TEST_USERS": json.dumps(seed)},
+    )  # fmt: skip
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "all checks passed" in res.stdout
+
+
 def _build_module():
     import importlib.util
 

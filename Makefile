@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify dashboard-build live-probe live-seed live-seed-create live-sync-dry live-sync
+.PHONY: setup test lint fmt serve serve-api create-user longdoc assure assure-gate audit-verify dashboard-build live-probe live-seed live-seed-create live-sync-dry live-sync live-worker live-worker-once dashboard-user
 
 setup:  ## create venv and install dependencies
 	python3 -m venv .venv
@@ -19,8 +19,8 @@ fmt:
 	$(PY) -m ruff check --fix .
 	$(PY) -m ruff format .
 
-serve:  ## preview the dashboard locally at http://localhost:8000 (the login only exists once deployed)
-	$(PY) -m http.server 8000 -d dashboard
+serve:  ## preview the dashboard locally at http://localhost:5173 (no login locally; data comes from dashboard/data/)
+	cd dashboard && npm install --no-audit --no-fund && npm run dev
 
 serve-api:  ## the upload-and-chat document service (Bedrock + Pinecone), http://localhost:8000
 	$(PY) -m uvicorn acp.server.main:create_production_app --factory --host 127.0.0.1 --port 8000
@@ -57,3 +57,12 @@ live-sync-dry:  ## full live sync without publishing (Bedrock cost: cents); writ
 
 live-sync:  ## full live sync and publish to Upstash Redis, then read it back to verify
 	$(PY) -m acp.assure.live
+
+live-worker:  ## run the event worker: takes Razorpay webhook events off the queue, runs the agent, publishes each step (Ctrl-C to stop)
+	$(PY) -m acp.assure.ingest
+
+live-worker-once:  ## process whatever is queued right now, then exit
+	$(PY) -m acp.assure.ingest --once
+
+dashboard-user:  ## manage dashboard accounts, e.g. make dashboard-user ARGS="add you@example.com --role admin"
+	$(PY) scripts/dashboard_user.py $(ARGS)

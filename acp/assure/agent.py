@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -33,6 +34,13 @@ use totals the tools return.
 request is a draft that a human must approve; say so.
 - Never repeat full card numbers, Aadhaar, PAN or phone numbers.
 - If you cannot do something or cannot find something, say so plainly. Do not guess.
+"""
+
+POLICY_PROMPT = """
+- For any question about rules or regulations, call search_policy first and answer ONLY from what it returns. Name the \
+issuer and reference of the note you rely on. State rupee figures exactly as the note gives them. If the notes do not \
+cover the question, or list the point under not_confirmed, say so plainly instead of answering from memory. This is \
+orientation, not legal advice.
 """
 
 WITHHELD = (
@@ -92,10 +100,15 @@ class AssuranceAgent:
         audit: AuditLog | None = None,
         max_steps: int = 8,
         numeric_mode: str = "enforce",  # off | flag | enforce
+        on_event: Callable[[ToolEvent], None] | None = None,
+        policy_docs: bool = False,  # adds search_policy and its instructions; off keeps the benchmark's tools
     ) -> None:
         self.llm, self.ledger, self.guarded, self.audit = llm, ledger, guarded, audit
         self.max_steps, self.numeric_mode = max_steps, numeric_mode
-        self._tools = tool_specs()
+        self.on_event = on_event
+        self.policy_docs = policy_docs
+        self._tools = tool_specs(policy_docs)
+        self._system = SYSTEM_PROMPT + (POLICY_PROMPT if policy_docs else "")
 
     def run(self, prompt: str, merchant_id: str, run_id: str | None = None) -> Trajectory:
         run_id = run_id or uuid.uuid4().hex[:12]
@@ -107,13 +120,16 @@ class AssuranceAgent:
             prompt_for_model, _ = redact(prompt)  # card data typed by the user never reaches the model or the log
         else:
             prompt_for_model = prompt
-        runtime = ToolRuntime(self.ledger, merchant_id, prompt, guarded=self.guarded, audit=self.audit, run_id=run_id)
+        runtime = ToolRuntime(
+            self.ledger, merchant_id, prompt, guarded=self.guarded, audit=self.audit, run_id=run_id,
+            on_event=self.on_event, policy_docs=self.policy_docs,
+        )  # fmt: skip
         if self.audit:
             self.audit.append(merchant_id, "run_start", {"prompt": prompt, "guarded": self.guarded}, run_id)
         messages: list[dict[str, Any]] = [{"role": "user", "content": [{"text": prompt_for_model}]}]
         try:
             for _ in range(self.max_steps):
-                step = self.llm.tool_step(SYSTEM_PROMPT, messages, self._tools)
+                step = self.llm.tool_step(self._system, messages, self._tools)
                 traj.steps += 1
                 traj.input_tokens += step.input_tokens
                 traj.output_tokens += step.output_tokens

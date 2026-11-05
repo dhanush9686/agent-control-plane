@@ -4,3 +4,5 @@ data/
 .env*
 .vercel
 .gitignore
+node_modules
+dist

@@ -1,0 +1,69 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+  --bg: #fbfbfd; --surface: #ffffff; --sunken: #f3f3f6; --fg: #17171a; --muted: #5f6068; --faint: #8e8f98;
+  --line: rgba(20, 20, 30, 0.09); --line-strong: rgba(20, 20, 30, 0.16);
+  --accent: #4f5df0; --accent-fg: #ffffff; --accent-soft: rgba(79, 93, 240, 0.1);
+  --good: #17803d; --good-soft: rgba(23, 128, 61, 0.1); --bad: #c8261f; --bad-soft: rgba(200, 38, 31, 0.09);
+  --warn: #a15c07; --warn-soft: rgba(161, 92, 7, 0.1);
+  --shadow: 0 1px 2px rgba(20, 20, 30, 0.04), 0 8px 30px rgba(20, 20, 30, 0.06);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0b0e; --surface: #141418; --sunken: #101013; --fg: #f4f4f6; --muted: #a2a3ad; --faint: #6d6e79;
+  --line: rgba(255, 255, 255, 0.09); --line-strong: rgba(255, 255, 255, 0.17);
+  --accent: #7b87ff; --accent-fg: #0b0b0e; --accent-soft: rgba(123, 135, 255, 0.14);
+  --good: #4cd17a; --good-soft: rgba(76, 209, 122, 0.12); --bad: #ff6a62; --bad-soft: rgba(255, 106, 98, 0.12);
+  --warn: #f0b24a; --warn-soft: rgba(240, 178, 74, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --bg: #0b0b0e; --surface: #141418; --sunken: #101013; --fg: #f4f4f6; --muted: #a2a3ad; --faint: #6d6e79;
+    --line: rgba(255, 255, 255, 0.09); --line-strong: rgba(255, 255, 255, 0.17);
+    --accent: #7b87ff; --accent-fg: #0b0b0e; --accent-soft: rgba(123, 135, 255, 0.14);
+    --good: #4cd17a; --good-soft: rgba(76, 209, 122, 0.12); --bad: #ff6a62; --bad-soft: rgba(255, 106, 98, 0.12);
+    --warn: #f0b24a; --warn-soft: rgba(240, 178, 74, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --color-bg: var(--bg); --color-surface: var(--surface); --color-sunken: var(--sunken);
+  --color-fg: var(--fg); --color-muted: var(--muted); --color-faint: var(--faint);
+  --color-line: var(--line); --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent); --color-accent-fg: var(--accent-fg); --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good); --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad); --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn); --color-warn-soft: var(--warn-soft);
+  --shadow-card: var(--shadow);
+}
+
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss03"; }
+::selection { background: var(--accent-soft); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+/* Graph */
+.graph .edge { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+.graph .edge.dashed { stroke-dasharray: 4 5; }
+.graph .arrowhead { fill: var(--line-strong); }
+.graph .gnode rect { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.graph .gnode .t { fill: var(--fg); font: 600 12.5px var(--font-sans); }
+.graph .gnode .s { fill: var(--muted); font: 400 10.5px var(--font-sans); }
+.graph .gnode.accent rect { fill: var(--accent-soft); stroke: var(--accent); }
+.graph .gnode.ok rect { fill: var(--good-soft); stroke: var(--good); }
+.graph .gnode.bad rect { fill: var(--bad-soft); stroke: var(--bad); }
+.graph .gnode.warn rect { fill: var(--warn-soft); stroke: var(--warn); }
+.graph .gnode.info rect { fill: var(--sunken); }
+
+.grid-bg { background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%); }
+.noscrollbar::-webkit-scrollbar { display: none; }

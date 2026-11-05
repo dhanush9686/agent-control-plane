@@ -127,3 +127,44 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
 - **Verified so far:** the offline tests, the Node tests and a read-only run against the real test account (keys valid,
   account empty). **Not yet verified:** a sync on seeded data, publishing to a real Upstash database, and how the
   deployed page looks on live data.
+
+## Live events: queue worker, one write path on Vercel, polling
+
+- **Agent runs in a worker, not in the webhook function.** The webhook only verifies the HMAC signature, whitelists the payment and queues it.
+  Running the Python agent inside Vercel would need long-lived AWS keys in Vercel env vars, the whole package bundled, and an audit chain that
+  loses continuity between invocations. Cost: events wait for the worker (shown plainly on the page).
+- **One deliberate exception to "Vercel only holds the read-only Redis token".** The webhook function uses the integration's write token
+  (`KV_REST_API_TOKEN`) because it must enqueue. It is confined to `dashboard/api/_events.js`, which refuses any command outside
+  SET/LPUSH/LTRIM/EXPIRE/LLEN; page-serving code still uses the read-only token only. Upstash tokens cannot be scoped per command.
+- **No Razorpay secret on Vercel.** Checkout needs only the public `rzp_test_` key id; the webhook secret verifies deliveries.
+- **Polling, not streaming.** Upstash REST plus Vercel functions do not give a cheap push channel; 3 s polling while the tab is visible is honest and simple.
+- **Re-whitelisting.** The Node receiver keeps only the fields the worker reads, and the worker runs `whitelist_payment` again (`snapshot_from_webhook`).
+- **Daily spend cap in Redis**, because the sync's cap is in-process and resets each run.
+
+## Personal accounts instead of one shared password
+
+- **Accounts in Redis, read-only on the website.** `acp:user:<email>` holds a scrypt hash (N=16384, r=8, p=1, 64-byte output) and the
+  role; `make dashboard-user` writes them from a trusted machine. No new database, and the sign-in function reads the register with the
+  read-only token.
+- **Stateless signed sessions, revocable by lookup.** The cookie is a signed `{email, role, exp}`; each request re-checks the register
+  (cached 30 s) so a disabled account loses access within a minute. If the register cannot be read, the session is refused (fail closed).
+- **A second, narrow write path** for failed-attempt counters and the sign-in log (`INCR/EXPIRE/DEL/LPUSH/LTRIM/GET`, confined to
+  `_users.js`), added to the webhook's existing exception. Without the write token the lockout is skipped and the fixed delay remains.
+- **Bootstrap.** While no account exists the shared `DASHBOARD_PASSWORD` still signs in (so the first admin can be created); once any account
+  exists it stops working. Old shared-password sessions expire on their own within 8 hours.
+- **No user enumeration.** An unknown email and a wrong password give the same message and cost the same time (a dummy hash is computed).
+- **Rejected:** a hosted identity provider (right for production, but the project's point is a small, inspectable system), magic links (need
+  email delivery), roles beyond admin and viewer (nothing to protect yet beyond the register).
+
+## A cited rules library, off by default
+
+- **Curated notes, not a crawl.** Six short paraphrased notes, each naming its RBI source and listing what was **not confirmed** from the
+  primary text. Claims that only a secondary summary made (for example a card-storage clause in the 2025 directions, or a fixed settlement
+  deadline) are recorded as unconfirmed, not stated as rules.
+- **Keyword search, no vectors.** At this size BM25-style scoring is testable and enough; the existing Pinecone service is a separate product.
+- **Rupee figures live in `*_paise` fields**, so the existing numeric-fidelity guard checks an answer's regulation figures exactly as it checks
+  ledger figures. A made-up "₹250 per day" is withheld.
+- **Off unless `policy_docs=True`.** Adding a tool changes how a model behaves, so the saved benchmark (run without it) stays comparable.
+- **Abstention is scored.** Two of the eight scenarios ask something the notes cannot answer; passing means saying so.
+- **Not run yet.** The suite exists and its plumbing is tested with a scripted model; no real model has been scored on it.
+

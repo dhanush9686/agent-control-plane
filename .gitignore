@@ -39,3 +39,6 @@ dashboard/api/_data.js
 results/live-*
 dashboard/data/live.json
 results/seed/
+
+# local development fixture for the Live events page
+dashboard/data/events.dev.json

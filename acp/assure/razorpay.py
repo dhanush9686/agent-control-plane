@@ -274,6 +274,22 @@ def snapshot_summary(snap: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def snapshot_from_webhook(raw_payment: dict[str, Any], default_tenant: str = "m_acme") -> dict[str, Any] | None:
+    """A one-payment snapshot built from a webhook's payment entity, or None if it cannot be represented.
+
+    No Razorpay call is made: the payload that Razorpay delivered is the only source. It goes through the same
+    field whitelist as a full snapshot, so anything the webhook receiver let through is re-checked here.
+    """
+    w = whitelist_payment(raw_payment, default_tenant)
+    if w is None:
+        return None
+    snap: dict[str, Any] = {
+        "source": "razorpay-test", "settlements_available": False, "payments": [w], "refunds": [], "settlements": [],
+    }  # fmt: skip
+    snap["sha256"] = snapshot_hash(snap)
+    return snap
+
+
 # ------------------------------------------------------------------ the ledger
 class RazorpayTestLedger:
     source = "razorpay-test"

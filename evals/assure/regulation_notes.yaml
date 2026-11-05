@@ -1,0 +1,157 @@
+# Short, paraphrased notes on Indian payments rules, for the agent to look up and cite. NOT legal advice and NOT a copy of
+# the sources: each note summarises what its source says, names the source, and says what it did NOT confirm.
+#
+# How it was built: each source page was read on `verified_on`; only provisions read in the primary text are stated as
+# rules. Things a secondary summary claimed but the primary text did not confirm are listed under `not_confirmed` and must
+# never be presented as fact. Amounts are stored as integer paise in `*_paise` fields so the numeric-fidelity guard can
+# check an answer's rupee figures against them, exactly as it does for ledger figures.
+#
+# Re-check against the source before relying on any note: rules change.
+- id: rbi-tat-failed-transactions-2019
+  title: Time limits and compensation for failed transactions
+  issuer: Reserve Bank of India
+  reference: RBI/2019-20/67, DPSS.CO.PD No.629/02.01.014/2019-20
+  issued: "2019-09-20"
+  effective: "2019-10-15"
+  url: https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=11693
+  verified_on: "2026-11-05"
+  keywords: [failed, transaction, reversal, reverse, auto-reversal, compensation, delay, upi, imps, pos, card, debited, credited, tat, turnaround, T+1, T+5, beneficiary, merchant, ombudsman]
+  summary: >-
+    Sets outer time limits (T is the transaction day) for putting money back when a payment fails after the customer is
+    debited, and a fixed compensation for every day beyond the limit. The compensation is paid to the customer without a
+    complaint or claim.
+  rules:
+    - "UPI, account debited but beneficiary not credited: the beneficiary bank must auto-reverse by T+1; compensation per day of delay beyond T+1."
+    - "IMPS, same situation: auto-reversal by the beneficiary bank by T+1; compensation per day beyond T+1."
+    - "Card-present (PoS) failed transaction: auto-reversal within T+5; compensation per day beyond T+5."
+    - "UPI merchant payment failed after debit: auto-reversal within T+5; compensation per day beyond T+5."
+    - "Compensation is credited suo motu, without waiting for the customer to complain or claim (para 5)."
+    - "A customer who is not given the redress can complain to the Reserve Bank - Integrated Ombudsman Scheme, 2021 (para 6)."
+    - "The prescribed time limits are outer limits (para 4)."
+  amounts_paise:
+    compensation_per_day_paise: 10000
+  not_confirmed:
+    - "The time limit and compensation for card-not-present (e-commerce) failures were not readable on the page; check the annexure PDF."
+
+- id: rbi-limited-liability-unauthorised-2017
+  title: Customer liability in unauthorised electronic banking transactions
+  issuer: Reserve Bank of India
+  reference: RBI/2017-18/15, DBR.No.Leg.BC.78/09.07.005/2017-18
+  issued: "2017-07-06"
+  effective: not stated on the page read
+  url: https://www.rbi.org.in/Scripts/BS_ViewMasCirculardetails.aspx?id=11040
+  verified_on: "2026-11-05"
+  keywords: [unauthorised, unauthorized, fraud, liability, customer, report, reported, working days, zero liability, limited liability, cap, savings, credit card, reversal, burden of proof, third party, breach, negligence]
+  summary: >-
+    Says how much of a loss from an unauthorised electronic banking transaction falls on the customer, depending on who was
+    at fault and how quickly the customer reports it. It is written for banks and their customers; whether and how it
+    applies to a merchant or a payment aggregator was not checked.
+  rules:
+    - "Zero liability if the bank contributed through fraud, negligence or deficiency, whether or not the customer reported it (para 6)."
+    - "Zero liability for a third-party breach (fault with neither bank nor customer) if the customer notifies the bank within three working days of the bank's communication (para 6)."
+    - "Where the customer is negligent, the customer bears the loss until reporting, and the bank bears it after reporting (para 7(i))."
+    - "Third-party breach reported in 4 to 7 working days: liability is the lower of the transaction value and a cap from Table 1 (para 7(ii))."
+    - "Table 1 caps: basic savings accounts 5,000 rupees; other savings accounts, prepaid instruments, MSME accounts, individual current accounts with a balance or limit up to 25 lakh rupees, and credit cards with a limit up to 5 lakh rupees, 10,000 rupees; other current, cash credit or overdraft accounts and larger credit cards, 25,000 rupees."
+    - "Reported after 7 working days: liability follows the bank's board-approved policy (Table 2)."
+    - "The bank credits the disputed amount within 10 working days of notification, value-dated to the transaction date (para 9)."
+    - "The complaint is resolved within the policy timeline and not beyond 90 days (para 10)."
+    - "The burden of proving customer liability lies on the bank (para 12)."
+  amounts_paise:
+    cap_basic_savings_paise: 500000
+    cap_standard_paise: 1000000
+    cap_other_paise: 2500000
+    individual_current_account_limit_paise: 250000000
+    credit_card_limit_threshold_paise: 50000000
+  not_confirmed:
+    - "Whether RBI has since replaced or consolidated this circular was not confirmed."
+    - "Its effective date was not found on the page read."
+
+- id: rbi-pa-directions-2025-refunds-disputes
+  title: Payment aggregators, refunds and disputes
+  issuer: Reserve Bank of India
+  reference: Regulation of Payment Aggregators Directions, 2025 (RBI/DPSS/2025-26/141)
+  issued: "2025-09-15"
+  effective: "immediately unless indicated otherwise (para 2(a))"
+  url: https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12896
+  verified_on: "2026-11-05"
+  keywords: [refund, refunds, original, source, payment method, payer, dispute, chargeback, grievance, officer, escalation, aggregator, payment aggregator, pa, timeline]
+  summary: >-
+    Requires a payment aggregator to refund to the original payment method, and to run a dispute process that states how
+    long refunds take and how chargebacks are answered, with a published grievance officer.
+  rules:
+    - "Refunds go back to the original payment method, unless the payer instructs an alternate mode that belongs to the same payer (para 10(f))."
+    - "The dispute-handling policy must include timelines for processing refunds, the failed-transaction time limits of the 2019 circular, and chargeback responses (para 8(a))."
+    - "The agreement with merchants must allocate grievance duties (para 8(b))."
+    - "The aggregator's website must disclose the grievance process, with a grievance officer and an escalation matrix (paras 8(c), 8(d))."
+  amounts_paise: {}
+  not_confirmed:
+    - "The Directions do not state a number of days for refunds in the text read; the timeline is left to the aggregator's own dispute policy."
+    - "A customer-grievance timeline was not found in the text read."
+    - "A summary elsewhere mentions chargeback-rights wording (clause 18(h)); it was not seen in the primary text."
+
+- id: rbi-pa-directions-2025-escrow-settlement
+  title: Payment aggregators, escrow and settlement to merchants
+  issuer: Reserve Bank of India
+  reference: Regulation of Payment Aggregators Directions, 2025 (RBI/DPSS/2025-26/141)
+  issued: "2025-09-15"
+  effective: "escrow compliance due by 2025-12-31 (para 16(a))"
+  url: https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12896
+  verified_on: "2026-11-05"
+  keywords: [settlement, settle, settled, escrow, funds, merchant, merchants, bank account, days, timeline, t+1, aggregator, payment aggregator, pa, nodal]
+  summary: >-
+    Customer money collected by a payment aggregator is held in a dedicated escrow account and goes only to the merchant's
+    own bank account. When settlement happens is left to the agreement between the aggregator and the merchant, which must
+    state the timeline clearly.
+  rules:
+    - "Funds are held in a separate escrow account with a scheduled commercial bank (para 16(a))."
+    - "Table 1 under para 16 lists the permitted credits and debits to the escrow account."
+    - "The merchant list must be given to the escrow bank (para 18(a)); cash-on-delivery flows may not go through escrow (para 18(b))."
+    - "Settlement timing is set by the aggregator-merchant agreement, which must transparently state the settlement timelines (Table 1)."
+    - "Funds are paid only to the merchant's bank account (para 13(g))."
+  amounts_paise: {}
+  not_confirmed:
+    - "No fixed number of days (such as T+1) for settlement appears in the text read. The earlier 2020 guidelines used fixed timelines; whether they were repealed was not confirmed."
+
+- id: rbi-pa-directions-2025-merchant-onboarding
+  title: Payment aggregators, merchant onboarding and security
+  issuer: Reserve Bank of India
+  reference: Regulation of Payment Aggregators Directions, 2025 (RBI/DPSS/2025-26/141)
+  issued: "2025-09-15"
+  effective: "immediately unless indicated otherwise (para 2(a)); existing merchants onboarded to 2025-12-31 have one year (para 13(j))"
+  url: https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12896
+  verified_on: "2026-11-05"
+  keywords: [onboarding, onboard, kyc, merchant, merchants, due diligence, cdd, ckycr, turnover, lakh, monitoring, pci, pci-dss, security, background check, fiu]
+  summary: >-
+    Sets the checks a payment aggregator must run on a merchant before and after onboarding, and requires merchant
+    systems to meet card-industry security standards.
+  rules:
+    - "Customer due diligence under the KYC Directions, retrieving records from CKYCR (para 13(a))."
+    - "A simplified route for merchants with turnover up to 40 lakh rupees (para 13(b))."
+    - "A background check on the merchant (para 13(c)); ongoing monitoring (para 13(h))."
+    - "Non-bank aggregators register with FIU-IND (para 13(i))."
+    - "Merchant infrastructure must comply with PCI-DSS and PCI-SSF (para 9(a))."
+  amounts_paise:
+    simplified_route_turnover_limit_paise: 400000000
+  not_confirmed:
+    - "The annexures and the repeal and savings chapter were not read in the primary text."
+
+- id: rbi-card-data-storage
+  title: Who may store card details
+  issuer: Reserve Bank of India
+  reference: DPSS.CO.PD.No.1810/02.14.008/2019-20 (17 Mar 2020); RBI/2021-22/96 CO.DPSS.POLC.No.S-516/02-14-003/2021-22 (7 Sep 2021)
+  issued: "2021-09-07"
+  effective: "2022-01-01 (card-on-file tokenisation circular, para 4(i))"
+  url: https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12159
+  verified_on: "2026-11-05"
+  keywords: [card, cards, store, storing, stored, card number, pan, card data, credentials, token, tokenisation, tokenization, card-on-file, merchant, purge, last four]
+  summary: >-
+    Payment aggregators and the merchants they onboard may not keep customers' actual card details. Only card issuers and
+    card networks may, and a merchant that needs to recognise a card later uses a token instead.
+  rules:
+    - "Aggregators must not store customer card credentials in their database or in a merchant-accessed server (2020 guidelines, para 10.4); the same is stated for merchants (Annex 1 para 7.4, Annex 2 para 2.1)."
+    - "From 1 January 2022 no entity in the card payment chain other than card issuers and networks may store actual card data; earlier stored data had to be purged (2021 circular, para 4(i))."
+    - "The last four digits of a card and the issuer's name may be kept (para 4(ii))."
+  amounts_paise: {}
+  not_confirmed:
+    - "Whether the 2025 Payment Aggregator Directions restate this rule was not confirmed in the text read."
+    - "Later amendments to these circulars were not checked."

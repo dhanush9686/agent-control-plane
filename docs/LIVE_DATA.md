@@ -66,3 +66,25 @@ Bedrock cost passes it and says so on the page), `--no-razorpay`, `--no-syntheti
 - **"Stale: a sync is overdue"**: the last sync is older than twice the expected interval (one week).
 - **Probe shows 0 payments**: seed the account (step 3). **Payments but one tenant**: the `notes.tenant` tag was not saved; the adapter also reads the order's notes.
 - **Settlements: not available**: Razorpay's docs say test mode has no settlement reports; those scenarios run on the synthetic source.
+
+## Live events (webhook -> queue -> worker -> dashboard)
+
+Besides the periodic sync above, a Razorpay **test-mode webhook** can drive the agent one payment at a time.
+
+```
+Checkout (test card) -> Razorpay -> POST /api/webhooks/razorpay (Vercel, HMAC-verified)
+   -> Redis: acp:live:event:<id> (state queued) + acp:live:queue
+python -m acp.assure.ingest (`make live-worker`) pops the queue, runs the guarded agent (and an unguarded comparison),
+   and rewrites the event record after every step
+Dashboard "Live events" polls /api/data?file=events every 3 s
+```
+
+Keys (7-day expiry): `acp:live:queue` (ids waiting; webhook LPUSH, worker RPOP), `acp:live:events` (newest-first ids, capped at 100),
+`acp:live:event:<id>` (state, whitelisted payment, steps, runs, verdict, cost), `acp:live:seen:<id>` (replay guard, 24 h),
+`acp:live:spend:<date>` (the daily spend cap, default $0.25, kept in Redis so it survives restarts).
+`acp:live:latest|runs|history` are untouched, so the periodic sync keeps its meaning.
+
+Honest limits: the webhook only fires for payments made through Checkout (test mode cannot create payments by API alone); the demo
+button sets the note and merchant, so hidden-instruction events are staged; nothing happens until the worker runs; the page polls, it
+does not stream; one small model, a few checks per event; the cross-merchant check uses a fixed fixture payment, not Razorpay data.
+The dashboard never serves a payment's note text (only whether there was one).

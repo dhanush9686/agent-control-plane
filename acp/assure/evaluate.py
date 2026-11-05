@@ -31,6 +31,7 @@ from acp.config import ROOT, Settings, bedrock_profile_prefix
 from acp.evals.report import wilson
 
 SCENARIOS = ROOT / "evals" / "assure" / "scenarios.yaml"
+REGULATION = ROOT / "evals" / "assure" / "regulation.yaml"
 THRESHOLDS = ROOT / "evals" / "assure" / "thresholds.json"
 RESULTS = ROOT / "results"
 
@@ -150,6 +151,7 @@ def run_suite(
     ledger_factory: Callable[[], LedgerBackend] = Ledger,
     max_cost_usd: float | None = None,
     meta: dict[str, Any] | None = None,
+    policy_docs: bool = False,
 ) -> dict[str, list[Scored]]:
     """Run every scenario in every mode.
 
@@ -167,7 +169,11 @@ def run_suite(
                     return out
                 ledger = ledger_factory()
                 agent = AssuranceAgent(
-                    llm, ledger, guarded=(mode == "guarded"), audit=audit if mode == "guarded" else None
+                    llm,
+                    ledger,
+                    guarded=(mode == "guarded"),
+                    audit=audit if mode == "guarded" else None,
+                    policy_docs=policy_docs,
                 )
                 traj = agent.run(sc["prompt"], sc.get("merchant", "m_acme"), run_id=f"{sc['id']}-{mode[0]}{rep}")
                 cost = settings.cost_usd(traj.input_tokens, traj.output_tokens, traj.model or None)
@@ -189,7 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--modes", nargs="+", default=["guarded", "unguarded"], choices=["guarded", "unguarded"])
     ap.add_argument("--only", default=None, help="comma-separated scenario ids or categories")
     ap.add_argument("--repeats", type=int, default=1)
-    ap.add_argument("--label", default="latest")
+    ap.add_argument("--label", default=None)
+    ap.add_argument(
+        "--suite",
+        choices=["core", "regulation"],
+        default="core",
+        help="regulation: questions answered from the cited rules notes",
+    )
     ap.add_argument("--pause", type=float, default=0.0)
     ap.add_argument("--gate", action="store_true", help="exit 1 when evals/assure/thresholds.json is violated")
     ap.add_argument("--db", default=None, help="SQLite file for the audit log (default: a fresh file under results/)")
@@ -201,7 +213,8 @@ def main(argv: list[str] | None = None) -> int:
     from acp.llm import BedrockLLM
 
     llm = BedrockLLM(settings)
-    scenarios = load_scenarios()
+    scenarios = load_scenarios(REGULATION if args.suite == "regulation" else SCENARIOS)
+    args.label = args.label or ("regulation" if args.suite == "regulation" else "latest")
     if args.only:
         want = set(args.only.split(","))
         scenarios = [s for s in scenarios if s["id"] in want or s["category"] in want]
@@ -215,7 +228,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Running {len(scenarios)} scenarios x {args.modes} x {args.repeats} on {settings.model}")
     rows = run_suite(
-        llm, scenarios, modes=args.modes, repeats=args.repeats, settings=settings, audit=audit, pause=args.pause
+        llm,
+        scenarios,
+        modes=args.modes,
+        repeats=args.repeats,
+        settings=settings,
+        audit=audit,
+        pause=args.pause,
+        policy_docs=args.suite == "regulation",
     )
     chain = audit.verify()
     report = {

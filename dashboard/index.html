@@ -4,31 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Control Plane</title>
-<meta name="description" content="Assurance layer for AI agents that touch money: measured results, an attack replay sandbox and a tamper-evident audit log.">
-<meta name="robots" content="noindex">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M7 20l5-6 4 4 8-10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Guardrails for AI agents that handle money, with measured results, a live test-mode check, an attack lab and a tamper-evident audit trail.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d1d1f'/%3E%3Cpath d='M7 20l5-6 4 4 8-10' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>
+  try { var t = localStorage.getItem("acp-theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="top">
-  <div class="brand">
-    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M7 20l5-6 4 4 8-10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Agent Control Plane</h1><p id="subtitle">Loading…</p></div>
-  </div>
-  <div class="actions">
-    <button id="logout" class="btn" type="button" hidden>Log out</button>
-    <button id="theme" class="btn" type="button" aria-label="Toggle dark or light theme">Theme</button>
-  </div>
-</header>
-<nav class="tabs" role="tablist" aria-label="Views">
-  <button role="tab" id="tab-live" aria-controls="main" data-view="live">Live</button>
-  <button role="tab" id="tab-results" aria-controls="main" data-view="results">Saved run</button>
-  <button role="tab" id="tab-replay" aria-controls="main" data-view="replay">Attack replay</button>
-  <button role="tab" id="tab-audit" aria-controls="main" data-view="audit">Audit log</button>
-</nav>
-<main id="main" tabindex="-1" aria-live="polite"><p class="muted">Loading data…</p></main>
-<footer>Test-mode and synthetic data only. Cost is an estimate from a price table.</footer>
-<script src="app.js" defer></script>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
