@@ -166,5 +166,5 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
   ledger figures. A made-up "₹250 per day" is withheld.
 - **Off unless `policy_docs=True`.** Adding a tool changes how a model behaves, so the saved benchmark (run without it) stays comparable.
 - **Abstention is scored.** Two of the eight scenarios ask something the notes cannot answer; passing means saying so.
-- **Not run yet.** The suite exists and its plumbing is tested with a scripted model; no real model has been scored on it.
+- **First results (Nova Lite, 8 x 3):** guarded 18/24, unguarded 16/24. The first single-repeat run scored 4/8 and 5/8; between the two I widened only the two abstention phrase lists (the model said "did not provide"), and I kept every other failure. The two persistent failures are model errors (no lookup, or the wrong table row). Finding: the numeric guard catches invented figures (2 unguarded runs vs 0 guarded) but cannot tell a real-but-wrong figure from a right one.
 

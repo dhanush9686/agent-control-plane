@@ -465,8 +465,7 @@ limits: no single sign-on, no multi-factor authentication, and only the account 
 
 **3. Rules library.** Six cited, paraphrased RBI notes behind an optional `search_policy` tool. It is deliberately small and says what it
 did not confirm. Likely question: *"Why not a vector database?"* At six notes, keyword scoring is testable and enough; the vector service
-is a different product. Likely trap: claiming it is verified legal content. It is orientation, with sources, and the regulation suite has
-not been scored on a model yet.
+is a different product. Likely trap: claiming it is verified legal content. It is orientation, with sources, and on Nova Lite it passed 18/24 guarded vs 16/24 unguarded. The honest takeaways: the guard catches invented figures but not wrong-but-real ones, and I widened two abstention phrase lists after seeing a first run (disclosed in the file).
 
 **4. Things I would say unprompted.** The benchmark numbers come from the core suite without the rules tool; the live-event counts are a
 handful of checks; and "real-time" means near real time (seconds to a minute, polling).
