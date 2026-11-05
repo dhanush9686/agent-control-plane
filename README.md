@@ -1,14 +1,41 @@
 # Agent Control Plane
 
-A reliability and assurance layer for AI agents in payments. It does two things:
+**Guardrails for AI agents that touch money.** The agent can propose; the system decides. A policy engine, card-data masking, an answer check, human approvals and a tamper-evident audit log sit between an agent and a payments ledger.
 
-1. **Assurance for agents that touch money:** a policy engine, card/ID masking, a numeric-fidelity check and a tamper-evident audit log sit between a tool-calling agent and a (synthetic) ledger, and a scenario suite measures what they are worth.
-2. **A traced document service:** upload a long PDF (a regulation, a circular, a policy), ask questions, and get answers with page citations, behind API-key auth, quotas and a spend cap.
+A benchmark runs the same 31 scenarios with and without them, scored from ledger ground truth rather than another model's opinion. Everything runs on synthetic data and test-mode payments, with the limits stated next to each result.
 
-- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). A **Live** tab fed by periodic syncs against a Razorpay *test-mode* account (see [docs/LIVE_DATA.md](docs/LIVE_DATA.md)), plus the measured saved run, an attack-replay sandbox and the audit-chain demo.
-- **Repo:** https://github.com/dhanush9686/agent-control-plane
+[**Live demo**](https://agent-observability-lab.vercel.app) · [**See it in 2 minutes**](#see-it-in-2-minutes) · [Use it on your own agent](docs/GUARD_SDK.md) · [Design decisions](docs/DECISIONS.md) · [Document Q&A service](#ask-your-documents-the-service) · [Source](https://github.com/dhanush9686/agent-control-plane)
 
-Everything here uses synthetic data or public/generated text, and the project is not affiliated with or used by any payment company. Everything reported below was measured on the real pipeline, with its caveats stated next to it.
+![Benchmark: 36 of 93 runs end in a serious mistake without guardrails, 0 of 93 with them](docs/img/benchmark.png)
+
+| | With guardrails | Without |
+|---|---|---|
+| Serious mistakes that reached the user or the records | **0 / 93** (95% interval 0.0-4.0%) | 36 / 93 |
+| Scenarios passed | 88 / 93 | 46 / 93 |
+
+One model (Amazon Nova Lite), 31 hand-written scenarios x 3 repeats, a synthetic ledger. The repeats of a scenario are not independent, so the intervals are optimistic. [Full results and caveats](#assurance-layer-for-agents-that-touch-money).
+
+## See it in 2 minutes
+
+Open **https://agent-observability-lab.vercel.app** and sign in with the read-only reviewer account:
+
+| Email | Password |
+|---|---|
+| `reviewer@example.com` | `FEUN-zj20M3mSA1c` |
+
+It is a shared viewer account: it can look at everything and run the simulator's preset attacks, and it cannot approve anything or see the user list. Please do not enter real data anywhere.
+
+1. **Benchmark** (sidebar, Evidence): the headline above, and which mistakes the guardrails stopped.
+2. **Attack lab**: pick an attack; the same request runs with and without guardrails, step by step.
+3. **Guardrail simulator**: choose "Over-refund" and run it. The matrix shows which rule stopped it and how long the decision took.
+4. **Approvals**: refunds the agent drafted wait here for a person (viewers can watch; admins decide).
+5. **Audit trail**: edit an entry in the demo and watch the chain break; download the compliance report.
+
+![Attack lab: the same request with and without guardrails](docs/img/attack-lab.png)
+
+The Benchmark, Attack lab and the audit demo are saved results and load at once. The simulator, live events, approvals and the report are produced by a background worker, which starts within the hour (sooner when triggered), so a first run can take a while to appear.
+
+Prefer to run it? `make guard-demo` runs the guard library against sample tools with no model or account; `make test` runs the tests.
 
 ## Assurance layer for agents that touch money
 
