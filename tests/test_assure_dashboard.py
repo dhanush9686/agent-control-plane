@@ -47,7 +47,9 @@ def test_build_summarises_the_saved_live_run_and_proves_the_audit_chain_detects_
 
 
 def test_no_data_file_is_uploaded_as_a_public_static_file():
-    assert "data/" in (ROOT / "dashboard" / ".vercelignore").read_text().split()
+    ignored = (ROOT / "dashboard" / ".vercelignore").read_text().split()
+    assert {"data/", ".env*", ".vercel"} <= set(ignored)  # Vercel skips .gitignore when .vercelignore exists
+    assert not (ROOT / "vercel.json").exists()  # a root-level config would publish the dashboard without the login
     assert "dashboard/api/_data.js" in (ROOT / ".gitignore").read_text()
 
 
