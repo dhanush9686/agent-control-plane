@@ -237,6 +237,7 @@ def test_groq_client_uses_the_same_capped_retry_logic(no_sleep):
 def test_get_llm_selects_the_provider(monkeypatch):
     from acp.llm import get_llm
 
+    pytest.importorskip("langchain_groq")  # only the Groq branch needs it; the CI environment does not install it
     monkeypatch.setenv("GROQ_API_KEY", "x")
     assert type(get_llm(Settings(llm_provider="groq", model="m"))).__name__ == "GroqLLM"
     with pytest.raises(Exception, match="Unknown ACP_LLM_PROVIDER"):

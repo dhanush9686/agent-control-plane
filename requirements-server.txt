@@ -1,0 +1,5 @@
+# The web service (upload + ask API and chat page)
+-r requirements.txt
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.33
