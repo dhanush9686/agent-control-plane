@@ -51,3 +51,17 @@
 11. **Why a different model as grader?** To reduce self-preference and shared blind spots; I would measure it with labelled examples (the harness exists) before claiming it is better.
 12. **Why Kafka if SQLite works?** It decouples the agent from the database and lets several consumers read spans; it is opt-in and I only demonstrated a single local broker, not scale.
 13. **How would you know the judge loop helps?** Run the naive baseline on the same questions and use a paired sign test on discordant questions; the comparison is built but not run yet.
+
+
+## The document service (new): what to say, and what not to claim
+- **Pitch:** "Upload a 400-page PDF and ask questions with page citations. Bedrock for models and embeddings, Pinecone for vectors,
+  hybrid search, a sandboxed parser, per-user isolation, quotas and a daily spend cap, and every question traced."
+- **Measured, with caveats:** 5/5 hidden facts answered with the right page on a 410-page document; ingest 111 s and $0.0045; about $0.26 per 1,000
+  questions. That is one synthetic document and 14 questions per setup, so say "it works end to end", not "it is accurate".
+- **Honest findings to volunteer:** the cheapest model (Nova Micro) missed a fact among 10 chunks and refused an injected question, so I measured Nova
+  Lite against it and upgraded one notch; keyword-only search matched hybrid on my keyword-friendly benchmark, so hybrid's advantage on paraphrases is
+  a design argument, not a measurement; a real run stalled for minutes because the provider asked for a 14-minute wait and my retry code obeyed it,
+  which I fixed with capped sleeps, a per-call deadline and immediate failover.
+- **Likely questions:** why numpy was removed (FAISS and PyTorch crash in one process on macOS, and Pinecone makes search a service); why Pinecone
+  namespaces per user and ids like `doc#i` (isolation, and delete-by-prefix because delete-by-filter is not on every plan); why eventual consistency
+  needs a "wait until visible" step; how the spend cap works (tokens x price table, global per day); what a prompt-injection defense can and cannot do.
