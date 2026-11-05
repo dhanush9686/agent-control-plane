@@ -217,7 +217,6 @@ function Limits() {
   const items = [
     ["Test data only", "Razorpay test mode and synthetic merchants. No production traffic and no real customers."],
     ["Small and early", "One model, a few hundred runs. Treat the numbers as evidence of a method, not a guarantee."],
-    ["Not affiliated", "An independent portfolio project. Not affiliated with Razorpay or any payment company."],
   ];
   return (
     <section id="limits" className="scroll-mt-20 border-t border-line bg-sunken px-5 py-24">
@@ -226,7 +225,7 @@ function Limits() {
           <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">What this is not.</h2>
           <p className="mt-4 text-lg text-muted">Stated up front, because a safety claim without limits is not worth much.</p>
         </Reveal>
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
+        <div className="mx-auto mt-12 grid max-w-3xl gap-4 md:grid-cols-2">
           {items.map(([t, d], i) => (
             <Reveal key={t} delay={i * 0.07}>
               <div className="h-full rounded-3xl border border-line bg-surface p-7"><Fingerprint className="mb-4 size-6 text-faint" strokeWidth={1.7} /><h3 className="text-lg font-semibold">{t}</h3><p className="mt-2 text-[15px] leading-relaxed text-muted">{d}</p></div>
@@ -259,7 +258,7 @@ export default function Landing() {
         <Hero /><Demo /><Results /><How /><Guardrails /><Limits /><Cta />
       </main>
       <footer className="border-t border-line px-5 py-10 text-center text-xs leading-relaxed text-faint">
-        Test-mode and synthetic data only. Not affiliated with Razorpay or any payment company.
+        Test-mode and synthetic data only.
       </footer>
     </div>
   );

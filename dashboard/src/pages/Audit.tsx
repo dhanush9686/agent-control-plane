@@ -7,7 +7,7 @@ export default function Audit() {
   const a = assure.audit_demo;
   return (
     <div className="space-y-6">
-      <PageHeader title="Audit trail" lead="Every request is logged in a chain. Change one entry and the chain breaks." />
+      <PageHeader title="Audit trail" lead="Edit one entry and the chain breaks." />
       <Card>
         <ChainView rows={a.rows} editedSeq={a.edited_seq} firstBad={a.after.first_bad_seq} />
         <div className="mt-5 grid gap-4 border-t border-line pt-5 text-sm sm:grid-cols-3">
@@ -22,9 +22,6 @@ export default function Audit() {
             <thead><tr>{["#", "Action", "Hash", "Previous"].map((t) => <th key={t}>{t}</th>)}</tr></thead>
             <tbody>{a.rows.map((r) => <tr key={r.seq}><td>{r.seq}</td><td>{r.action}</td><td className="font-mono text-xs">{r.hash}…</td><td className="font-mono text-xs">{r.prev}…</td></tr>)}</tbody>
           </TableWrap>
-        </Disclosure>
-        <Disclosure summary="Limits">
-          <p className="text-sm leading-relaxed text-muted">This shows tampering; it cannot prevent it. Someone who can rewrite the whole table could rebuild a consistent chain. In production, store the latest fingerprint where the database administrator cannot write.</p>
         </Disclosure>
       </Card>
     </div>

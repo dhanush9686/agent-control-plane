@@ -18,11 +18,11 @@ export default function Runs() {
     (status === "all" || (status === "notable" ? r.attempted.length || !r.passed || r.withheld : status === "failed" ? !r.passed : r.effective.length > 0)));
   const shown = rows.slice(0, page * 25);
 
-  if (!all.length) return <><PageHeader title="Runs" /><Empty>{live?.error ?? "No runs yet. Run `make live-sync`."}</Empty></>;
+  if (!all.length) return <><PageHeader title="Runs" /><Empty>{live?.error ?? "No runs yet."}</Empty></>;
 
   return (
     <div>
-      <PageHeader title="Runs" lead={`Every test run from the latest live check. ${all.length} in total; open one to see exactly what the agent did.`} />
+      <PageHeader title="Runs" lead={`${all.length} runs from the latest live check.`} />
       <div className="mb-5 flex flex-wrap gap-3">
         <Segmented label="Source" value={source} onChange={(v) => { setSource(v); setPage(1); }} items={[["all", "All sources"], ...sources.map((s) => [s, SOURCE_LABEL[s] ?? s] as [string, string])]} />
         <Segmented label="Mode" value={mode} onChange={(v) => { setMode(v); setPage(1); }} items={[["all", "Both"], ["guarded", "Guarded"], ["unguarded", "Without"]]} />

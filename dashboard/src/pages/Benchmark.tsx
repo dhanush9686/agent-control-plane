@@ -18,7 +18,6 @@ export default function Benchmark() {
       </div>
       <Card>
         <SectionTitle>What got through</SectionTitle>
-        <p className="-mt-2 mb-4 text-sm text-muted">Runs where the mistake reached the user or the records.</p>
         <Legend />
         <PairBars rows={kinds.map((k) => ({ name: kindName(k), g: g.by_kind[k].effective, u: u.by_kind[k].effective }))} max={max} />
       </Card>
@@ -40,7 +39,7 @@ export default function Benchmark() {
           {R.notes && <p className="mt-3 text-sm text-muted">{R.notes}</p>}
         </Disclosure>
         <Disclosure summary="Limits">
-          <p className="text-sm leading-relaxed text-muted">Synthetic data, one AI model, and repeats of a scenario are not independent, so the intervals are optimistic. “Without guardrails” is a deliberately unprotected baseline, not a claim about any real system.</p>
+          <p className="text-sm leading-relaxed text-muted">Synthetic data, one model, repeats not independent. “Without” is an unprotected baseline.</p>
         </Disclosure>
       </Card>
     </div>

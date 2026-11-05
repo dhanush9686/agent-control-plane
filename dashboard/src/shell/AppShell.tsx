@@ -89,7 +89,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <button type="button" onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-muted transition-colors hover:bg-sunken hover:text-fg">
           <LogOut className="size-[17px]" strokeWidth={1.9} />Sign out
         </button>
-        <p className="px-3 pt-2 text-[11px] leading-snug text-faint">Test-mode and synthetic data only. Not affiliated with Razorpay.</p>
+        <p className="px-3 pt-2 text-[11px] leading-snug text-faint">Test-mode and synthetic data only.</p>
       </div>
     </div>
   );

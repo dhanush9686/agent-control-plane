@@ -161,7 +161,7 @@ PROVENANCE = [
     "The agent's refund requests are recorded in memory only. Nothing is ever sent to Razorpay.",
     "Decisions are made by a real model on Amazon Bedrock; the policy, masking and numeric checks are ordinary code.",
     "Capture is periodic (a scheduled or manual sync), not a stream of production traffic.",
-    "Small samples: intervals are wide and repeats of a scenario are not independent. Not affiliated with Razorpay.",
+    "Small samples: intervals are wide and repeats of a scenario are not independent.",
 ]
 
 

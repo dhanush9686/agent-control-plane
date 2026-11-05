@@ -80,11 +80,11 @@ function TriggerPanel({ onSent }: { onSent: () => void }) {
       const rzp = new Rzp({
         key: KEY_ID, amount: Math.round(amount) * 100, currency: "INR", name: "Control Plane (test mode)", description: p.label,
         notes: { tenant: p.tenant, memo: p.memo },
-        handler: () => { setMsg("Payment made. Razorpay is sending the webhook; the event should appear below within seconds."); onSent(); },
+        handler: () => { setMsg("Payment made. The event appears below shortly."); onSent(); },
         modal: { ondismiss: () => setBusy(false) },
         theme: { color: "#4f5df0" },
       });
-      rzp.on("payment.failed", () => { setMsg("Razorpay reported the payment failed. A failed-payment webhook should follow."); onSent(); });
+      rzp.on("payment.failed", () => { setMsg("Payment failed. A failed-payment event should follow."); onSent(); });
       rzp.open();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Could not open Checkout.");
@@ -95,9 +95,7 @@ function TriggerPanel({ onSent }: { onSent: () => void }) {
   return (
     <Card>
       <SectionTitle>Simulate a payment</SectionTitle>
-      <p className="-mt-2 mb-4 max-w-2xl text-sm leading-relaxed text-muted">
-        Opens Razorpay Checkout in test mode. When you pay, Razorpay sends a real signed webhook to this site, and the agent handles it below. No real money moves.
-      </p>
+      <p className="-mt-2 mb-4 text-sm text-muted">Pays in Razorpay test mode. No real money moves.</p>
       <Segmented label="Payment type" value={preset} onChange={setPreset} items={(Object.keys(PRESETS) as PresetKey[]).map((k) => [k, PRESETS[k].label] as [PresetKey, string])} />
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-muted">
@@ -112,9 +110,7 @@ function TriggerPanel({ onSent }: { onSent: () => void }) {
       </div>
       {!isTestKey && <p className="mt-3 text-sm text-warn">Checkout is off: this build has no <code className="font-mono text-xs">VITE_RAZORPAY_KEY_ID</code> test key.</p>}
       {msg && <p className="mt-3 text-sm text-muted" role="status">{msg}</p>}
-      <p className="mt-4 text-xs leading-relaxed text-faint">
-        In Checkout use Razorpay's published test details, for example UPI <code className="font-mono">success@razorpay</code> (or <code className="font-mono">failure@razorpay</code> for a failed payment), or a test card with any future expiry and any CVV. Check Razorpay's test-mode docs for the current values. The note and merchant are set by this button, so the hidden-instruction cases are staged, not organic.
-      </p>
+      <p className="mt-4 text-xs text-faint">Test UPI: <code className="font-mono">success@razorpay</code> or <code className="font-mono">failure@razorpay</code>.</p>
     </Card>
   );
 }
@@ -189,7 +185,7 @@ export default function Events() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Live events" lead="Real Razorpay test-mode webhooks, handled by the agent as they arrive. Updates every few seconds."
+      <PageHeader title="Live events" lead="Test-mode webhooks, handled by the agent as they arrive."
         right={<Badge tone="accent" dot><Radio className="mr-1 inline size-3" />Polling every {POLL_MS / 1000}s</Badge>} />
       <TriggerPanel onSent={() => window.setTimeout(reload, 1500)} />
 
@@ -197,19 +193,15 @@ export default function Events() {
       {waiting.length > 0 && (
         <div className="flex gap-3 rounded-2xl border border-warn/40 bg-warn-soft p-4 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" />
-          <p>{waiting.length} event{waiting.length === 1 ? " has" : "s have"} been waiting over two minutes. The worker is probably not running. Start it with <code className="font-mono text-xs">make live-worker</code>.</p>
+          <p>{waiting.length} event{waiting.length === 1 ? " has" : "s have"} been waiting over two minutes. The worker is not running.</p>
         </div>
       )}
 
-      {feed && !feed.configured && <Empty>The event store is not configured on this deployment, so there are no live events.</Empty>}
-      {feed?.configured && feed.events.length === 0 && <Empty>No events yet. Make a test payment above, or wait for the next webhook.</Empty>}
+      {feed && !feed.configured && <Empty>The event store is not configured.</Empty>}
+      {feed?.configured && feed.events.length === 0 && <Empty>No events yet.</Empty>}
       <div className="space-y-4">
         <AnimatePresence initial={false}>{(feed?.events ?? []).map((e) => <EventCard key={e.id} e={e} />)}</AnimatePresence>
       </div>
-
-      <p className="text-xs leading-relaxed text-faint">
-        What this is: a real, signed Razorpay test-mode webhook, queued, then run through the same guarded agent as the benchmark by a separate worker, with each step published as it happens. What it is not: production traffic, a push stream (the page polls), or an instant answer (the worker has to be running). Results come from one small model on a handful of checks.
-      </p>
     </div>
   );
 }

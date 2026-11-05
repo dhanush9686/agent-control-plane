@@ -9,7 +9,7 @@ export default function LiveCheck() {
   const { live } = useReady();
   const { source } = useParams();
   const navigate = useNavigate();
-  if (!live || !live.latest) return <><PageHeader title="Live check" /><Empty>{live?.error ?? "No live check yet. Run `make live-sync`; it appears here without a redeploy."}</Empty></>;
+  if (!live || !live.latest) return <><PageHeader title="Live check" /><Empty>{live?.error ?? "No live check yet."}</Empty></>;
 
   const L = live.latest, sources = Object.keys(L.sources);
   const src = source && sources.includes(source) ? source : sources[0];
@@ -37,7 +37,7 @@ export default function LiveCheck() {
         <LineageGraph live={live} latest={L} src={src} />
         {snap && src === "razorpay-test" && (
           <p className="mt-4 text-xs text-faint">
-            {Object.entries(snap.payments_by_tenant ?? {}).map(([k, v]) => k + ": " + v).join(", ")} · {snap.refunds} refunds · settlements {snap.settlements_available ? "returned but empty" : "unavailable in test mode"}. Payment contents are never published.
+            {Object.entries(snap.payments_by_tenant ?? {}).map(([k, v]) => k + ": " + v).join(", ")} · {snap.refunds} refunds
           </p>
         )}
       </Card>
@@ -56,11 +56,6 @@ export default function LiveCheck() {
           <ChainView rows={a.rows.slice(-8)} />
         </Card>
       )}
-
-      <Card>
-        <SectionTitle>About this data</SectionTitle>
-        <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted">{(L.provenance ?? []).map((t, i) => <li key={i}>{t}</li>)}</ul>
-      </Card>
     </div>
   );
 }

@@ -31,32 +31,31 @@ function LiveActivity() {
   return (
     <div className="mt-6">
       <SectionTitle right={<Badge tone="accent" dot>Updates every 5s</Badge>}>Live activity</SectionTitle>
-      {stuck && <p className="mb-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Some items have waited over two minutes: the worker is not running. Start it with <code className="font-mono text-xs">make live-worker</code>, or run the live-worker workflow on GitHub.</p>}
+      {stuck && <p className="mb-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Some items have waited over two minutes. The worker is not running.</p>}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <div className="flex items-start justify-between"><div className="text-sm font-medium">Webhook events</div><Link to="/app/events" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
           {events && events.configured ? (
             <>
               <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{evs.length}</span><span className="text-sm text-muted">received · {evDone.length} handled · {events.queue} waiting</span></div>
-              <p className="mt-2 text-sm text-muted">Across handled events: <b className="text-good">{evLeaks}</b> mistakes with guardrails, <b className="text-bad">{evWould}</b> the baseline would have made.</p>
+              <p className="mt-2 text-sm text-muted"><b className="text-good">{evLeaks}</b> mistakes guarded · <b className="text-bad">{evWould}</b> unguarded</p>
               {lastEv && <p className="mt-2 text-xs text-faint">Latest: <code className="font-mono">{lastEv.payment.id}</code> · {lastEv.state} · {ageText(lastEv.received_at)}</p>}
-              {!lastEv && <p className="mt-2 text-sm text-muted">No events yet. Make a test payment on the Live events page.</p>}
+              {!lastEv && <p className="mt-2 text-sm text-muted">No events yet.</p>}
             </>
-          ) : <p className="mt-3 text-sm text-muted">{events ? "The event store is not configured." : "Loading…"}</p>}
+          ) : <p className="mt-3 text-sm text-muted">{events ? "Not configured." : "Loading…"}</p>}
         </Card>
         <Card>
           <div className="flex items-start justify-between"><div className="text-sm font-medium">Guardrail simulator</div><Link to="/app/simulator" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
           {sim && sim.configured ? (
             <>
               <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{jobs.length}</span><span className="text-sm text-muted">runs · {jobDone.length} finished · {sim.queue} waiting</span></div>
-              <p className="mt-2 text-sm text-muted">Of finished runs: <b className="text-good">{simBreach}</b> breaches with guardrails, <b className="text-bad">{simBase}</b> without.</p>
+              <p className="mt-2 text-sm text-muted"><b className="text-good">{simBreach}</b> breaches guarded · <b className="text-bad">{simBase}</b> unguarded</p>
               {lastJob && <p className="mt-2 text-xs text-faint">Latest: {lastJob.title ?? "Custom payload"} · {lastJob.state}{lastJob.verdict ? ` · guarded ${lastJob.verdict.guarded}, baseline ${lastJob.verdict.unguarded}` : ""} · {ageText(lastJob.created_at)}</p>}
-              {!lastJob && <p className="mt-2 text-sm text-muted">No simulations yet. Run an attack on the Guardrail simulator page.</p>}
+              {!lastJob && <p className="mt-2 text-sm text-muted">No simulations yet.</p>}
             </>
-          ) : <p className="mt-3 text-sm text-muted">{sim ? "The simulator store is not configured." : "Loading…"}</p>}
+          ) : <p className="mt-3 text-sm text-muted">{sim ? "Not configured." : "Loading…"}</p>}
         </Card>
       </div>
-      <p className="mt-2 text-xs text-faint">The headline numbers above come from the saved benchmark and the latest scheduled check. Events and simulations are counted here separately, over the most recent ones kept.</p>
     </div>
   );
 }
@@ -73,7 +72,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader title={`${greeting()}.`} lead={<>Here is how the guardrails are holding up. Results come from {g.n} test runs on {shortModel(R.model)}, synthetic data.</>}
+      <PageHeader title={`${greeting()}.`} lead={<>{g.n} test runs on {shortModel(R.model)}, synthetic data.</>}
         right={fr && <Badge tone={fr.tone} dot>{fr.text} · {ageText(latest!.finished_at)}</Badge>} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -90,7 +89,6 @@ export default function Dashboard() {
       <div className="mt-6 grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <SectionTitle right={<Link to="/app/benchmark" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Details <ArrowRight className="size-3.5" /></Link>}>What got through</SectionTitle>
-          <p className="-mt-2 mb-5 text-sm text-muted">Runs where the mistake reached the user or the records.</p>
           <PairBars rows={kinds.map((k) => ({ name: KIND_LABEL[k] ?? k, g: g.by_kind[k].effective, u: u.by_kind[k].effective }))} max={max} />
         </Card>
         <Card className="lg:col-span-2">
@@ -106,15 +104,13 @@ export default function Dashboard() {
                   </div>
                 </Link>
               ))}
-              <p className="text-xs text-faint">One repeat per scenario, so treat single numbers as a spot check, not a benchmark.</p>
             </div>
-          ) : <p className="text-sm text-muted">{live?.error ?? "No live check yet. Run `make live-sync`."}</p>}
+          ) : <p className="text-sm text-muted">{live?.error ?? "No live check yet."}</p>}
         </Card>
       </div>
 
       <Card className="mt-6">
         <SectionTitle right={<Link to="/app/architecture" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Explained <ArrowRight className="size-3.5" /></Link>}>Every request passes through checks</SectionTitle>
-        <p className="-mt-2 mb-5 text-sm text-muted">The AI never touches the records directly.</p>
         <ArchitectureGraph flow />
       </Card>
 
@@ -126,7 +122,7 @@ export default function Dashboard() {
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {([["/app/attack-lab", Swords, "Try an attack", "Replay a scripted attacker with and without guardrails."], ["/app/audit", ScrollText, "Audit trail", "See what happens when a log entry is edited."], ["/app/live", Activity, "Live lineage", "Trace every number back to its source."]] as const).map(([to, Icon, t, d], i) => (
+        {([["/app/attack-lab", Swords, "Try an attack", "Scripted attacker, guards on and off."], ["/app/audit", ScrollText, "Audit trail", "Edit an entry and watch the chain break."], ["/app/live", Activity, "Live lineage", "Where every number comes from."]] as const).map(([to, Icon, t, d], i) => (
           <motion.div key={to} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}>
             <Link to={to} className="group block h-full rounded-2xl border border-line bg-surface p-5 shadow-card transition-transform hover:-translate-y-0.5">
               <Icon className="mb-3 size-5 text-accent" strokeWidth={1.9} />
