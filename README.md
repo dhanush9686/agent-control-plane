@@ -75,8 +75,8 @@ guard.register("propose_refund", propose_refund)
 
 session = guard.session(tenant="m_acme", user_text="Refund pay_A001 for Rs 500")
 result = session.call("propose_refund", payment_id="pay_A001", amount_paise=50_000)
-result.code                                  # "pending_approval": nothing has run yet
-shown = session.check_answer(model_answer)   # mask card data, withhold unverifiable amounts
+result.code  # "pending_approval": nothing has run yet
+shown = session.check_answer(model_answer)  # mask card data, withhold unverifiable amounts
 ```
 
 The benchmark was measured on the built-in payments runtime, not on this library. See the [guide](docs/GUARD_SDK.md).
