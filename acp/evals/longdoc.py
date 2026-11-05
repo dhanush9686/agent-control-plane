@@ -298,16 +298,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--depths", default="0,25,50,75,100")
     p.add_argument("--needles", type=int, default=25)
     p.add_argument("--synthetic", type=int, default=100)
-    p.add_argument("--index", default="acp-eval-384", help="Pinecone index for the eval (created if missing)")
+    p.add_argument("--index", default=None, help="Pinecone index (default acp-eval-<dim>; created if missing)")
     p.add_argument("--rerank", action="store_true", help="also evaluate hybrid + cross-encoder reranking")
     args = p.parse_args(argv)
     from dotenv import load_dotenv
 
-    from acp.embeddings import MiniLMEmbedder
+    from acp.embeddings import make_embedder
 
     load_dotenv(ROOT / ".env")  # PINECONE_API_KEY lives here; never printed
-    embedder = MiniLMEmbedder.shared(Settings().embedding_model)
-    vstore = PineconeStore.connect(dimension=embedder.dim, index_name=args.index)
+    embedder = make_embedder(Settings())  # Bedrock Titan v2 by default (ACP_EMBEDDING_PROVIDER=minilm for local)
+    vstore = PineconeStore.connect(dimension=embedder.dim, index_name=args.index or f"acp-eval-{embedder.dim}")
     report = run(
         embedder,
         vstore,

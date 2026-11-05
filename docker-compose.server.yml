@@ -1,0 +1,27 @@
+# Run the service locally:   docker compose -f docker-compose.server.yml up --build
+# Needs: a .env with PINECONE_API_KEY (and AWS_REGION), and AWS credentials. Credentials are mounted READ-ONLY from your
+# ~/.aws folder; for anything beyond local use, give the container an IAM role instead of mounting keys, and scope the
+# role to bedrock:InvokeModel on the models you use.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      AWS_SHARED_CREDENTIALS_FILE: /home/app/.aws/credentials
+      AWS_CONFIG_FILE: /home/app/.aws/config
+    volumes:
+      - acp-data:/data
+      - ${HOME}/.aws:/home/app/.aws:ro
+    mem_limit: 1g
+    read_only: true            # the container filesystem is read-only; only /data and /tmp are writable
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+volumes:
+  acp-data:

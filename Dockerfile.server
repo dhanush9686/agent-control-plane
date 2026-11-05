@@ -1,0 +1,19 @@
+# The upload-and-chat service. No secrets are baked in: AWS credentials, region and the Pinecone key are provided at run time.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY requirements-service.txt .
+RUN pip install -r requirements-service.txt
+
+COPY acp ./acp
+COPY pyproject.toml ./
+
+# Run as an unprivileged user; all writable state (SQLite, uploaded PDFs) lives under /data (mount a volume there).
+RUN useradd --create-home --uid 10001 app && mkdir -p /data && chown app /data
+USER app
+ENV ACP_DB_PATH=/data/service.db ACP_KB_ROOT=/data/kb
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else 1)"
+CMD ["python", "-m", "uvicorn", "acp.server.main:create_production_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

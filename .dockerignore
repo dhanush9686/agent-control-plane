@@ -7,3 +7,11 @@ data/faiss_index
 __pycache__
 .pytest_cache
 .ruff_cache
+
+data/
+results/
+dashboard/
+docs/
+tests/
+.github
+*.md
