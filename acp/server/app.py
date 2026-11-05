@@ -82,8 +82,10 @@ def _norm_question(q: str) -> str:
     return " ".join(q.lower().split())
 
 
-def _cache_key(owner_id: str, doc_id: str, question: str) -> str:
-    return hashlib.sha256(f"{owner_id}|{doc_id}|{_norm_question(question)}".encode()).hexdigest()
+def _cache_key(owner_id: str, doc_id: str, question: str, models: tuple[str, ...] = ()) -> str:
+    """Same owner + document + question + model configuration -> same cached answer. The models are part of the key so
+    changing the model setup never serves answers produced by the old one."""
+    return hashlib.sha256(f"{owner_id}|{doc_id}|{_norm_question(question)}|{','.join(models)}".encode()).hexdigest()
 
 
 def _too_many(message: str, retry_after: float, scope: str) -> JSONResponse:
@@ -278,7 +280,7 @@ def create_app(deps: AppDeps) -> FastAPI:
             wait = deps.ask_limiter.hit(owner)
             if wait > 0:
                 return _too_many("You are asking too quickly. Please slow down.", wait, "rate")
-            key = _cache_key(owner, doc_id, body.question)
+            key = _cache_key(owner, doc_id, body.question, (*s.synth_models, *s.judge_models))
             cached = conn.execute("SELECT response FROM answer_cache WHERE cache_key=?", (key,)).fetchone()
             remaining = lambda: deps.quota.remaining(owner, s.daily_asks, s.daily_uploads)["asks"]  # noqa: E731
             if cached is not None:  # identical question on the same document: free, instant, no tokens

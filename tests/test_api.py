@@ -371,3 +371,19 @@ def test_concurrent_uploads_from_one_user_all_get_processed_in_order(svc):
     for r in results:
         assert wait_ready(svc, "alice", r.json()["id"])["status"] == "ready"
     assert json.dumps(svc.client.get("/v1/documents", headers=H(key_of(svc, "alice"))).json())
+
+
+def test_changing_the_model_setup_does_not_serve_answers_cached_by_the_old_models(svc):
+    from dataclasses import replace
+
+    from acp.server.app import _cache_key
+
+    a = _cache_key("o", "d", "What?", ("m1", "m2"))
+    assert a == _cache_key("o", "d", " what?  ", ("m1", "m2")) and a != _cache_key("o", "d", "What?", ("m1", "m3"))
+    doc = upload(svc, "alice").json()["id"]
+    wait_ready(svc, "alice", doc)
+    assert ask(svc, "alice", doc, "a question to cache").json()["cached"] is False
+    assert ask(svc, "alice", doc, "a question to cache").json()["cached"] is True
+    object.__setattr__(svc.deps.settings, "synth_models", ("another-model",))  # frozen dataclass: bypass for the test
+    assert replace(svc.deps.settings).synth_models == ("another-model",)
+    assert ask(svc, "alice", doc, "a question to cache").json()["cached"] is False  # new models, fresh answer
