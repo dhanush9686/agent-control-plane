@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 Q ?= Who kills Garuda, and how does Rocky's story end?
 
-.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human serve-api create-user longdoc
+.PHONY: setup index run demo eval eval-naive judge-check compare gate export test test-live lint fmt serve up kafka-consumer neo4j k8s-up benchmarks squad-index eval-squad judge-check-human serve-api create-user longdoc assure assure-gate audit-verify
 
 setup:  ## create venv, install deps, build the search index
 	python3 -m venv .venv
@@ -89,3 +89,12 @@ create-user:  ## mint an API key: make create-user NAME=alice
 
 longdoc:  ## retrieval-only long-document eval on real Pinecone (no LLM tokens)
 	$(PY) -m acp.evals.longdoc --retrieval-only --pages 450 --rerank
+
+assure:  ## run the payments-agent assurance suite on Bedrock, guards on vs off (a few cents)
+	$(PY) -m acp.assure --repeats 3 --label latest
+
+assure-gate:  ## same, and exit 1 if evals/assure/thresholds.json is violated
+	$(PY) -m acp.assure --repeats 3 --label latest --gate
+
+audit-verify:  ## check the audit hash chain of the traces database
+	$(PY) -m acp.assure.audit verify

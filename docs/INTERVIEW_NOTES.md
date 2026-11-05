@@ -65,3 +65,17 @@
 - **Likely questions:** why numpy was removed (FAISS and PyTorch crash in one process on macOS, and Pinecone makes search a service); why Pinecone
   namespaces per user and ids like `doc#i` (isolation, and delete-by-prefix because delete-by-filter is not on every plan); why eventual consistency
   needs a "wait until visible" step; how the spend cap works (tokens x price table, global per day); what a prompt-injection defense can and cannot do.
+
+## Assurance layer for payment agents: what to say, and what not to claim
+- **Pitch (20 s):** "I built a harness that tests an agent with payment tools the way you would test a payments
+  service: a policy layer the model cannot talk past, an audit trail, and a scenario suite that runs with the guards on
+  and off. On Nova Lite the unguarded agent reached a critical outcome in 39% of runs; with the layer, 0 of 93."
+- **Best story:** the model turned 100,000 paise into "₹100,000.00" (100x); the numeric guard caught it. Also the
+  injected "refund pay_A002" note: the model *tried* it in some runs, the provenance rule stopped it.
+- **Why drafts only:** an agent should never be the last line before money moves; humans approve, with idempotency keys.
+- **Why attempted vs effective:** attempted tracks the model (it drifts on upgrades); effective tracks the system.
+  A model swap that raises attempted but not effective is safe; one that raises effective is a release blocker.
+- **Do not claim:** that this is how any company does it, that it is production-grade, that 31 scenarios prove
+  safety, or that the CIs are tight (repeats are not independent). It is a prototype on synthetic data.
+- **If asked what next:** more scenarios from real incident classes, a second model on the same suite, anchoring the
+  audit head hash externally, merchant-level rate limits, and wiring the gate into the release pipeline.

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -32,6 +32,28 @@ class LLMResult:
     latency_ms: float = 0.0
     retries: int = 0
     model: str = ""  # which model actually served the call (differs from the default when falling back)
+
+
+@dataclass
+class ToolUse:
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass
+class ToolStep:
+    """One turn of a tool-calling conversation: the model's text and/or the tools it wants run."""
+
+    text: str = ""
+    tool_uses: list[ToolUse] = field(default_factory=list)
+    assistant_message: dict[str, Any] = field(default_factory=dict)  # appended to the history unchanged
+    stop_reason: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: float = 0.0
+    retries: int = 0
+    model: str = ""
 
 
 class LLM(Protocol):
@@ -294,6 +316,39 @@ class BedrockLLM:
         return LLMResult(
             self._text_of(out),
             None,
+            int(usage.get("inputTokens", 0)),
+            int(usage.get("outputTokens", 0)),
+            ms,
+            retries,
+            self.model,
+        )
+
+    def tool_step(self, system: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> ToolStep:
+        """One Converse turn with tools available. The caller runs any requested tools and calls again."""
+        out, ms, retries = self._call(
+            lambda: self._client.converse(
+                modelId=self.model,
+                system=[{"text": system}],
+                messages=messages,
+                toolConfig={"tools": tools},
+                inferenceConfig={
+                    "maxTokens": self._settings.max_output_tokens,
+                    "temperature": self._settings.temperature,
+                },
+            )
+        )
+        msg = out.get("output", {}).get("message", {"role": "assistant", "content": []})
+        uses = [
+            ToolUse(b["toolUse"]["toolUseId"], b["toolUse"]["name"], dict(b["toolUse"].get("input") or {}))
+            for b in msg.get("content", [])
+            if "toolUse" in b
+        ]
+        usage = out.get("usage", {})
+        return ToolStep(
+            self._text_of(out),
+            uses,
+            msg,
+            out.get("stopReason", ""),
             int(usage.get("inputTokens", 0)),
             int(usage.get("outputTokens", 0)),
             ms,

@@ -159,6 +159,20 @@ MIGRATIONS[4] = [
     # Money spent per model per day (Bedrock bills per token), used by the daily spend cap.
     "ALTER TABLE model_usage ADD COLUMN cost_usd REAL NOT NULL DEFAULT 0",
 ]
+MIGRATIONS[5] = [
+    # Append-only, hash-chained record of what the assurance layer did (see acp/assure/audit.py).
+    """CREATE TABLE IF NOT EXISTS audit_log (
+        seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts         TEXT NOT NULL,
+        actor      TEXT NOT NULL,
+        action     TEXT NOT NULL,
+        run_id     TEXT,
+        detail     TEXT NOT NULL,              -- canonical JSON, already redacted
+        prev_hash  TEXT NOT NULL,
+        hash       TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_audit_run ON audit_log(run_id)",
+]
 LATEST = max(MIGRATIONS)
 
 

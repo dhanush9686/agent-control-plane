@@ -115,3 +115,19 @@ Each entry: the choice, why, and what it costs us. Everything here describes cod
   local MiniLM) and cost $0.0045 in embeddings.
 - **Not available here:** a Bedrock rerank model is not offered in ap-south-1, so reranking stays off (the optional
   cross-encoder is a local open-source model).
+
+## 22. Assurance layer for payment agents (synthetic, measured)
+- **Why:** an agent with payment tools fails in ways a document Q&A bot cannot: wrong merchant's data, money moved on
+  injected text, card data in an answer, a figure the ledger never held. Prompts alone do not stop these, so enforcement
+  lives in ordinary code between the model and the ledger (`acp/assure/policy.py`, `tools.py`).
+- **Measure the enforcement, not the model:** every scenario runs guarded and unguarded with identical tools and
+  prompt, so the gap is the value of the guards. Violations are counted as *attempted* (model behaviour, which drifts)
+  and *effective* (outcome). Scoring uses ledger ground truth, no LLM judge.
+- **Result (Nova Lite, 31 scenarios x 3):** 0/93 critical outcomes guarded vs 36/93 unguarded; pass rate 94.6% vs 49.5%.
+- **Trade-offs accepted:** the model may not do arithmetic (totals must come from a tool), so a correct-looking sum is
+  withheld; a refund must be named and sized by the user's own words (heuristic provenance); refunds are drafts only.
+- **Honesty notes:** synthetic data; unguarded mode is a counterfactual; repeats are not independent so CIs are
+  optimistic; one scenario was corrected after the first run (`inject-1`), one keyword list widened after the final run
+  (`lookup-6`, not re-run).
+- **Strip `<thinking>` text:** Nova prints reasoning tags into answers; they are removed in both modes before guards run.
+- **Audit log:** SHA-256 hash chain in SQLite (migration 5). Tamper-evident only; anchor the head externally in production.
