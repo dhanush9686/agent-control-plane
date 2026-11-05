@@ -117,7 +117,7 @@ MIGRATIONS: dict[int, list[str]] = {
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             doc_id     TEXT NOT NULL,
             owner_id   TEXT NOT NULL,
-            idx        INTEGER NOT NULL,       -- position in the document; equals the row in its FAISS index
+            idx        INTEGER NOT NULL,       -- position in the document; the vector id is '<doc>#<idx>'
             page       INTEGER NOT NULL,       -- 1-based PDF page index
             page_label TEXT,
             section    TEXT,

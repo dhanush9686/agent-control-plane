@@ -46,8 +46,8 @@ _run_start_ns: contextvars.ContextVar[int | None] = contextvars.ContextVar("acp_
 def span_to_record(s: ReadableSpan) -> dict[str, Any] | None:
     """Flatten a finished OTel span into a plain JSON-able dict (the unit we store or stream).
 
-    Analogy: turning a camera's raw footage into a one-line log entry. Everything downstream (SQLite writer,
-    Kafka producer/consumer) speaks this dict, so they never touch OpenTelemetry objects.
+    Analogy: turning a camera's raw footage into a one-line log entry. Everything downstream (the SQLite writer)
+    speaks this dict, so they never touch OpenTelemetry objects.
     """
     a = dict(s.attributes or {})
     run_id = a.get("acp.run_id")
@@ -78,7 +78,7 @@ def span_to_record(s: ReadableSpan) -> dict[str, Any] | None:
 def write_record(conn: sqlite3.Connection, r: dict[str, Any]) -> None:
     """Insert one span record; when it is the run's root span, also upsert the `runs` summary row.
 
-    Idempotent (INSERT OR REPLACE), so replaying a Kafka message twice is harmless.
+    Idempotent (INSERT OR REPLACE), so writing the same span twice is harmless.
     """
     latency_ms = (r["end_ns"] - r["start_ns"]) / 1e6
     extra = r["attrs"]
@@ -161,37 +161,6 @@ class SQLiteSpanExporter(SpanExporter):
         pass
 
 
-class KafkaSpanExporter(SpanExporter):
-    """Publishes span records to a Kafka topic instead of writing SQLite directly.
-
-    Analogy: instead of filing each sheet yourself, you drop it in the outbox; a separate clerk
-    (scripts/kafka_consumer.py) files it. The agent never waits on the database. Messages are keyed by run_id
-    so all spans of one run stay in order on one partition (children before the root).
-    `producer` is anything with produce(topic, key, value) and flush(): confluent_kafka.Producer or a fake.
-    """
-
-    def __init__(self, producer: Any, topic: str = "acp.spans") -> None:
-        self._producer, self._topic = producer, topic
-
-    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-        try:
-            for s in spans:
-                if (rec := span_to_record(s)) is not None:
-                    self._producer.produce(self._topic, key=rec["run_id"], value=json.dumps(rec, default=str))
-            self._producer.flush(5)
-            return SpanExportResult.SUCCESS
-        except Exception:  # noqa: BLE001
-            log.exception("kafka export failed (agent unaffected)")
-            return SpanExportResult.FAILURE
-
-    def shutdown(self) -> None:
-        try:
-            self._producer.flush(5)
-        except Exception:  # noqa: BLE001
-            pass
-
-
-# ------------------------------------------------------------- span helper ---
 class SpanHandle:
     """What `with tracing.span(...) as sp` gives you. Every method is exception-proof."""
 
@@ -237,8 +206,8 @@ class Tracing:
         mode: str | None = None,
         exporter: SpanExporter | None = None,
     ) -> None:
-        """mode: "sync" (default; write before returning), "batch" (background thread, faster for the agent),
-        or "kafka" (stream to a topic; needs `exporter` or ACP_KAFKA_BOOTSTRAP). Override with ACP_TRACE_MODE."""
+        """mode: "sync" (default; write before returning) or "batch" (background thread, faster for the agent).
+        Override with ACP_TRACE_MODE."""
         self.settings = settings
         self.db_path = Path(db_path or settings.db_path)
         self.mode = mode or settings.trace_mode
@@ -251,14 +220,8 @@ class Tracing:
         self._tracer = self._provider.get_tracer("acp")
 
     def _make_exporter(self) -> SpanExporter:
-        if self.mode == "kafka":
-            from confluent_kafka import Producer  # optional dependency: requirements-streaming.txt
-
-            return KafkaSpanExporter(
-                Producer({"bootstrap.servers": self.settings.kafka_bootstrap}), self.settings.kafka_topic
-            )
         if self.mode not in ("sync", "batch"):
-            raise ValueError(f"unknown trace mode {self.mode!r}; use sync, batch or kafka")
+            raise ValueError(f"unknown trace mode {self.mode!r}; use sync or batch")
         return SQLiteSpanExporter(self.db_path)
 
     def flush(self) -> None:

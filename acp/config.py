@@ -130,7 +130,6 @@ class Settings:
     # Grader for evals: a DIFFERENT model family than the answerer to reduce self-preference bias.
     # Override with ACP_JUDGE_MODEL, or pass --judge-model same to grade with the answering model.
     judge_model: str = field(default_factory=_default_judge)
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # only for the legacy local film-corpus index
     bedrock_embed_model: str = field(
         default_factory=lambda: os.environ.get("ACP_EMBED_MODEL", "amazon.titan-embed-text-v2:0")
     )
@@ -149,23 +148,14 @@ class Settings:
     llm_max_retries: int = field(
         default_factory=lambda: int(os.environ.get("ACP_LLM_MAX_RETRIES", "4"))
     )  # extra tries on 429/5xx/timeouts, with backoff
-    trace_mode: str = field(default_factory=lambda: os.environ.get("ACP_TRACE_MODE", "sync"))  # sync | batch | kafka
-    kafka_bootstrap: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_BOOTSTRAP", "localhost:19092"))
-    kafka_topic: str = field(default_factory=lambda: os.environ.get("ACP_KAFKA_TOPIC", "acp.spans"))
-    # Point these at another knowledge base (e.g. the SQuAD 2.0 slice) with ACP_CORPUS_PATH / ACP_INDEX_PATH.
-    corpus_path: Path = field(
-        default_factory=lambda: Path(os.environ.get("ACP_CORPUS_PATH", ROOT / "data" / "corpus.txt"))
-    )
-    index_path: Path = field(
-        default_factory=lambda: Path(os.environ.get("ACP_INDEX_PATH", ROOT / "data" / "faiss_index"))
-    )
+    trace_mode: str = field(default_factory=lambda: os.environ.get("ACP_TRACE_MODE", "sync"))  # sync | batch
     db_path: Path = field(default_factory=lambda: Path(os.environ.get("ACP_DB_PATH", ROOT / "data" / "traces.db")))
     prices: dict[str, tuple[float, float]] = field(default_factory=load_prices)
 
     # --- uploaded-document mode (server). Every number is an env var so limits can change without code. ---
-    domain_name: str = field(default_factory=lambda: os.environ.get("ACP_DOMAIN_NAME", "a small film-knowledge corpus"))
+    domain_name: str = field(default_factory=lambda: os.environ.get("ACP_DOMAIN_NAME", "a set of payments documents"))
     citation_example: str = field(
-        default_factory=lambda: os.environ.get("ACP_CITATION_EXAMPLE", "[KGF: Chapter 1 (2018)]")
+        default_factory=lambda: os.environ.get("ACP_CITATION_EXAMPLE", "[report.pdf p.37]")
     )  # shown to the model as the citation style; the server uses "[report.pdf p.37]"
     kb_root: Path = field(default_factory=lambda: Path(os.environ.get("ACP_KB_ROOT", ROOT / "data" / "kb")))
     max_upload_mb: int = field(default_factory=lambda: _env_int("ACP_MAX_UPLOAD_MB", 30))

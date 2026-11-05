@@ -14,10 +14,10 @@ from acp.config import Settings  # noqa: E402
 from acp.llm import LLMResult  # noqa: E402
 
 CORPUS = [
-    Document(page_content="Rocky kills Garuda.", metadata={"source": "KGF 1"}),
-    Document(page_content="Rocky dies at the end.", metadata={"source": "KGF 2"}),
-    Document(page_content="Salaar is in Telugu.", metadata={"source": "Salaar"}),
-    Document(page_content="Dragon is unreleased.", metadata={"source": "Dragon"}),
+    Document(page_content="Refunds are credited within 5 working days.", metadata={"source": "TAT p.3"}),
+    Document(page_content="Failed UPI payments are reversed by T+1.", metadata={"source": "TAT p.4"}),
+    Document(page_content="Card tokens replace stored card numbers.", metadata={"source": "Tokens p.2"}),
+    Document(page_content="Settlement fees are shown per batch.", metadata={"source": "Fees p.1"}),
 ]
 
 
@@ -38,7 +38,9 @@ class FakeLLM:
 
     model = "fake"
 
-    def __init__(self, sufficient: list[bool] | None = None, answer: str = "Rocky kills Garuda [KGF 1]") -> None:
+    def __init__(
+        self, sufficient: list[bool] | None = None, answer: str = "Refunds are credited within 5 working days [TAT p.3]"
+    ) -> None:
         self.sufficient = list(sufficient if sufficient is not None else [True])
         self.answer = answer
         self.calls: list[str] = []

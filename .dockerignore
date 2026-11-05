@@ -3,7 +3,6 @@
 .venv
 .git
 data/traces.db
-data/faiss_index
 __pycache__
 .pytest_cache
 .ruff_cache

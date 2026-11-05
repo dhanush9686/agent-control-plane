@@ -36,4 +36,4 @@ service now runs on Amazon Bedrock, which has not shown this behaviour (median a
   meaningful by itself. When the question carries injected instructions *and* the context is large, every Nova model
   we tried (Micro, Lite, Pro) judged the context insufficient in a direct test, which is a safe but unhelpful failure.
 - **Ideas:** show the judge fewer, better-ranked chunks after a retry (re-rank instead of appending), let the answer
-  step see the top chunks even when the judge is unsure, and measure grader accuracy with `make judge-check`.
+  step see the top chunks even when the judge is unsure.

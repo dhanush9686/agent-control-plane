@@ -46,7 +46,7 @@ def test_retrieval_dedups_across_attempts(settings):
 
 
 def test_clean_query_unstutters_and_strips():
-    stutter = "Deva role in Salaar film actor name"  # real model output was this string repeated back-to-back
+    stutter = "refund timeline for failed card payments"  # real model output was this string repeated back-to-back
     assert clean_query(stutter + stutter) == stutter
     assert clean_query("abcabc") == "abc"
     assert clean_query('  "hello world"\nextra line') == "hello world"
@@ -54,19 +54,5 @@ def test_clean_query_unstutters_and_strips():
 
 
 def test_extract_citations_handles_both_bracket_styles():
-    text = "A [KGF 1]. B 【Source: Universe notes】. C [KGF 1]."
-    assert extract_citations(text) == ["KGF 1", "Universe notes"]
-
-
-def test_naive_agent_has_no_judge_and_no_retry(settings):
-    llm, ret = FakeLLM([False]), FakeRetriever()  # a judge would say "insufficient" -- naive never asks
-    final = build_graph(llm, ret, settings, kind="naive").invoke(initial_state("q"))
-    assert llm.calls == ["synthesize"]
-    assert len(ret.queries) == 1 and final["answer"]
-
-
-def test_unknown_agent_kind_is_rejected(settings):
-    import pytest
-
-    with pytest.raises(ValueError, match="unknown agent kind"):
-        build_graph(FakeLLM(), FakeRetriever(), settings, kind="bogus")
+    text = "A [TAT p.3]. B 【Source: Circular notes】. C [TAT p.3]."
+    assert extract_citations(text) == ["TAT p.3", "Circular notes"]

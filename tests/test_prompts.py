@@ -6,14 +6,14 @@ from acp.nodes import extract_citations, format_docs, neutralize
 from acp.state import initial_state
 from tests.conftest import FakeLLM
 
-FILM = Document(page_content="Rocky kills Garuda.", metadata={"source": "KGF: Chapter 1 (2018)"})
+PLAIN = Document(page_content="Refunds are credited within 5 working days.", metadata={"source": "TAT circular"})
 UPLOAD = Document(
     page_content="Revenue grew 12%.", metadata={"source": "report.pdf", "citation": "report.pdf p.37", "page": 37}
 )
 
 
-def test_film_corpus_rendering_is_byte_for_byte_unchanged():
-    assert format_docs([FILM]) == "[Source: KGF: Chapter 1 (2018)]\nRocky kills Garuda."
+def test_chunk_without_a_citation_renders_with_its_plain_source():
+    assert format_docs([PLAIN]) == "[Source: TAT circular]\nRefunds are credited within 5 working days."
 
 
 def test_uploaded_chunk_uses_page_citation_and_is_wrapped():
@@ -44,9 +44,9 @@ def _prompts(settings, docs):
     return dict(llm.prompts)
 
 
-def test_film_prompts_keep_original_wording_and_example(settings):
-    p = _prompts(settings, [FILM])
-    assert "[KGF: Chapter 1 (2018)]" in p["synthesize"]
+def test_prompts_without_uploaded_chunks_use_the_default_example_and_no_injection_rule(settings):
+    p = _prompts(settings, [PLAIN])
+    assert "[report.pdf p.37]" in p["synthesize"]
     assert "untrusted document content" not in p["synthesize"]
     assert "untrusted document content" not in p["judge"]
 
@@ -63,16 +63,16 @@ def test_document_mode_prompts_use_settings_and_add_injection_rule(tmp_path):
     ret = type("R", (), {"search": lambda self, q, k: [UPLOAD]})()
     build_graph(llm, ret, s).invoke(initial_state("What grew?"))
     prompts = dict(llm.prompts)
-    assert "[report.pdf p.37]" in prompts["synthesize"] and "KGF" not in prompts["synthesize"]
+    assert "[report.pdf p.37]" in prompts["synthesize"]
     assert "untrusted document content" in prompts["synthesize"] and "untrusted document content" in prompts["judge"]
     assert "A search over the uploaded document did not return" in prompts["refine_query"]
 
 
 def test_default_refine_prompt_is_unchanged(settings):
     llm = FakeLLM([False, True])
-    ret = type("R", (), {"search": lambda self, q, k: [FILM]})()
+    ret = type("R", (), {"search": lambda self, q, k: [PLAIN]})()
     build_graph(llm, ret, settings).invoke(initial_state("q"))
-    assert "A search over a small film-knowledge corpus did not return" in dict(llm.prompts)["refine_query"]
+    assert "A search over a set of payments documents did not return" in dict(llm.prompts)["refine_query"]
 
 
 def test_retrieve_node_keeps_context_under_the_token_budget(tmp_path):
@@ -92,8 +92,8 @@ def test_retrieve_node_keeps_context_under_the_token_budget(tmp_path):
     assert estimate_tokens(synth_prompt) < 1500 + 300  # the whole prompt, not just the context, fits the budget
 
 
-def test_default_budget_leaves_the_small_film_corpus_untouched(settings):
+def test_default_budget_leaves_a_small_context_untouched(settings):
     llm = FakeLLM([True])
-    ret = type("R", (), {"search": lambda self, q, k: [FILM, UPLOAD]})()
+    ret = type("R", (), {"search": lambda self, q, k: [PLAIN, UPLOAD]})()
     final = build_graph(llm, ret, settings).invoke(initial_state("q"))
     assert len(final["retrieved_docs"]) == 2

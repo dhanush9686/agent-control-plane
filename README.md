@@ -1,12 +1,14 @@
 # Agent Control Plane
 
-A thin reliability layer around an LLM agent. Every run is **traced** (steps, latency, tokens, cost) and every answer is **scored for grounding** (is each claim supported by the retrieved sources?), so a team can see *when* and *why* the agent fails. It now also includes an [assurance layer for agents that touch money](#assurance-layer-for-agents-that-touch-money): policy, masking, numeric checks, a tamper-evident audit log and a scenario gate.
+A reliability and assurance layer for AI agents in payments. It does two things:
 
-- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). It shows the assurance results with a replayable attack sandbox, plus the film-demo evals. All of it is saved output; the document service and the live assurance suite run locally and need AWS credentials.
+1. **Assurance for agents that touch money:** a policy engine, card/ID masking, a numeric-fidelity check and a tamper-evident audit log sit between a tool-calling agent and a (synthetic) ledger, and a scenario suite measures what they are worth.
+2. **A traced document service:** upload a long PDF (a regulation, a circular, a policy), ask questions, and get answers with page citations, behind API-key auth, quotas and a spend cap.
+
+- **Live dashboard:** https://agent-observability-lab.vercel.app (password-protected; ask the owner). Measured results, an attack-replay sandbox and the audit-chain demo. All of it is saved output; the live suite and the document service run locally and need AWS credentials.
 - **Repo:** https://github.com/dhanush9686/agent-control-plane
 
-![Dashboard overview](docs/dashboard-overview.png)
-![Trace waterfall](docs/dashboard-runs.png)
+Everything here uses synthetic data or public/generated text, and the project is not affiliated with or used by any payment company. Everything reported below was measured on the real pipeline, with its caveats stated next to it.
 
 ## Assurance layer for agents that touch money
 
@@ -59,7 +61,7 @@ Not yet done: a second model compared on the same suite (the suite is what lets 
 
 Upload a PDF (tested on a 410-page one), ask questions, and get answers with **page citations**. It runs on **Amazon Bedrock**
 (Nova models + Titan embeddings) and **Pinecone**, behind a FastAPI service with API-key auth, quotas, a daily spend cap, and a
-chat page. Every question is traced by the same observability layer described below.
+chat page. Every question is traced by the observability layer described below. It is a general long-document service; pointing it at payments regulations (for example RBI circulars) is the intended use, and fetching such a corpus is not done yet.
 
 ```mermaid
 flowchart LR
@@ -131,175 +133,66 @@ per-minute rate limit, daily question/upload quotas, shared per-model token budg
 
 **Not done / limits of this service**: scanned (image-only) PDFs are rejected (no OCR); one ingestion worker and one SQLite file, so one server instance;
 no OAuth/SSO (API keys only); the reranker is off (Bedrock offers none in ap-south-1; a local cross-encoder is optional); streaming answers and multi-turn
-chat are not built; the AWS IAM role should be scoped to `bedrock:InvokeModel` on the models you use. The film demo below still retrieves with a local
-FAISS + MiniLM index (not migrated to Bedrock/Pinecone).
+chat are not built; the AWS IAM role should be scoped to `bedrock:InvokeModel` on the models you use. The assurance controls (PII masking,
+numeric check, audit log) are built and measured in the assurance layer above; they are **not wired into this document service yet**.
 
 ---
 
-## The problem
-
-LLM agents fail quietly: they sound confident while inventing a detail the sources never said. This project wraps a small retrieval agent (a film knowledge base) with (1) a flight recorder for every step and (2) an automatic fact-checker, then gates releases on the scores.
-
-The knowledge base (`data/corpus.txt`) contains deliberate traps: a **thin** entry (Dragon, unreleased), a note that **KGF and Salaar are *not* one universe**, and questions it simply cannot answer.
-
-## Architecture
+## How the document agent works
 
 ```mermaid
 flowchart LR
-    Q[Question] --> R[retrieve<br/>FAISS, k=3, dedup]
+    Q[Question] --> R[retrieve<br/>hybrid: vectors + BM25, k=3, dedup]
     R --> J{judge<br/>LLM, structured verdict}
-    J -- sufficient --> S[synthesize<br/>answer only from context + cite]
+    J -- sufficient --> S[synthesize<br/>answer only from context + cite page]
     J -- insufficient, attempts &lt; 2 --> F[refine_query]
     F --> R
     J -- insufficient, cap reached --> S
-    S --> A[Answer]
-    subgraph Tracing
-      T[OpenTelemetry spans<br/>per node + per LLM call] --> DB[(SQLite<br/>runs, spans)]
-    end
+    S --> A[Answer + citations]
     R -.-> T
     J -.-> T
-    S -.-> T
-    DB --> E[Eval runner<br/>19 golden questions]
-    E --> G[Grounding judge + deterministic checks]
-    G --> REP[results/eval_report.json<br/>+ SQLite eval tables]
-    REP --> GATE[Regression gate<br/>exit 1 below thresholds]
-    T -.optional.-> K[(Kafka topic)] -.-> C[consumer] -.-> DB
-    REP --> L[Lineage graph<br/>Neo4j / dashboard]
-    DB --> X[export script] --> D[Static dashboard<br/>dashboard/]
+    S -.-> T[OpenTelemetry spans<br/>per node + per LLM call] --> DB[(SQLite<br/>runs, spans)]
 ```
 
-Code map: `acp/agents` is just `build_graph(kind=...)` in `acp/graph.py`; `acp/graph.py` (LangGraph StateGraph and routing), `acp/nodes.py` (the four nodes), `acp/llm.py` (Groq client with retry/backoff), `acp/tracing.py` + `acp/store.py` (spans to SQLite), `acp/evals/` (golden set, checks, grounding judge, report), `scripts/` (gate, export), `dashboard/` (static site), `acp/lineage.py` (claim-to-chunk graph, Cypher export), `acp/streaming.py` + `scripts/kafka_consumer.py` (Kafka), `acp/history.py` (trend data), `k8s/` and `docker-compose.yml`.
-
-## Quickstart (about 5 minutes)
-
-Requires Python 3.11+. The LLM is Amazon Bedrock by default (AWS credentials with model access); to use Groq instead set `ACP_LLM_PROVIDER=groq` and a free [Groq key](https://console.groq.com/keys).
-
-```bash
-git clone https://github.com/dhanush9686/agent-control-plane && cd agent-control-plane
-make setup            # venv, deps, builds the FAISS index; creates .env from .env.example
-# put your key in .env  (GROQ_API_KEY=...)
-make run Q="Who kills Garuda, and how does Rocky's story end?"
-```
-
-`make setup` also downloads the local MiniLM model (~80 MB) used by the film demo's search index. Other commands:
-
-| Command | What it does |
-|---|---|
-| `make run Q="..."` | Ask one question; prints answer, citations and the trace summary |
-| `make demo` | Four demo questions |
-| `make eval` | Run the 19-question golden set (several minutes on the free tier) |
-| `make gate` | Exit 1 if `results/eval_report.json` is below `evals/thresholds.json` |
-| `make export` | Write `dashboard/data/traces.json` from the latest evals |
-| `make serve` | Preview the dashboard at http://localhost:8000 |
-| `make test` / `make test-live` | Offline unit tests / real Groq+FAISS end-to-end tests |
-| `make lint` | ruff check + format check |
-| `make eval-naive` | Golden set with the one-shot RAG baseline (for agent-vs-agent comparison) |
-| `make compare A=<id> B=<id>` | Paired comparison of two eval runs (sign test) |
-| `make judge-check` | Measure the grader itself on 38 labelled answers |
-| `make up` / `make kafka-consumer` / `make neo4j` | Free local Kafka + Neo4j (Docker); stream traces; load the lineage graph |
-| `make k8s-up` | Deploy the dashboard to the current kube context (e.g. minikube) |
-
-Equivalent without make: `python -m acp.cli "question"`, `python -m acp.evals`.
+Code map: `acp/graph.py` (LangGraph StateGraph and routing), `acp/nodes.py` (the nodes and prompts), `acp/llm.py` (Bedrock client with capped retries and tool use; optional Groq), `acp/kb.py` + `acp/hybrid.py` + `acp/vectorstore.py` (per-document index, hybrid search, Pinecone), `acp/ingest/` (sandboxed PDF parse, chunking, one ingestion worker), `acp/server/` (FastAPI service, auth, chat page), `acp/ratelimit.py` + `acp/budget.py` (rate limit, quotas, spend cap, context budget), `acp/tracing.py` + `acp/store.py` (spans to SQLite), `acp/assure/` (the assurance layer), `acp/evals/` (long-document retrieval eval, Wilson intervals), `dashboard/` (the login-protected results site).
 
 ## How tracing works
 
-Each question gets one `run_id`. OpenTelemetry spans wrap **every graph node** (`node.retrieve`, `node.judge`, `node.refine_query`, `node.synthesize`) and **every LLM call** (`llm.judge`, `llm.synthesize`, ...). A custom `SpanExporter` (`SQLiteSpanExporter`) writes them to `data/traces.db`:
+Each question gets one `run_id`. OpenTelemetry spans wrap **every graph node** (`node.retrieve`, `node.judge`, `node.refine_query`, `node.synthesize`) and **every LLM call** (`llm.judge`, `llm.synthesize`, ...). A custom `SpanExporter` (`SQLiteSpanExporter`) writes them to SQLite:
 
-- `runs`: question, answer, latency, tokens, estimated cost, LLM calls, retries, retrieved chunks.
-- `spans`: name, kind, parent, offset/latency, tokens, cost, retries, and attributes (the judge's verdict and reasoning, the search query, which sources were retrieved).
-- Tokens come from the provider's response metadata. **Cost is an estimate** from a configurable price table (`acp/config.py`, override with `ACP_PRICES_JSON`); check Groq's pricing page.
-- Tracing never crashes the agent: every tracing call is wrapped, and a unit test forces the exporter to fail and checks the answer still returns.
+- `runs`: question, answer, latency, tokens, estimated cost, LLM calls, retries. For an uploaded document the retrieved chunks keep only ids and page numbers by default, so a trace cannot become a second copy of the document.
+- `spans`: name, kind, parent, offset/latency, tokens, cost, retries, and attributes (the judge's verdict, the search query, which sources were retrieved).
+- Tokens come from the provider's response metadata. **Cost is an estimate** from a price table (`acp/config.py`, override with `ACP_PRICES_JSON`); the prices are my best knowledge, so check the AWS pricing page.
+- Tracing never crashes the agent: every tracing call is wrapped, and a unit test forces the exporter to fail and checks the answer still returns. `ACP_TRACE_MODE=batch` writes from a background thread.
 
-## How evals work
+## Commands
 
-For each of 19 golden questions (`evals/golden.yaml`: answerable, multi-hop, thin-data, contradiction trap, unanswerable, prompt injection):
-
-1. The traced agent answers.
-2. **Deterministic checks** (no LLM): did it answer vs refuse as expected, required/banned phrases, a citation present, and cited sources actually among the retrieved chunks.
-3. **Grounding judge** (LLM, structured output): splits the answer into atomic claims and checks each against the retrieved chunks only, quoting evidence. Any unsupported claim counts as a hallucination.
-
-Metric definitions: *answered-correctly* = of questions that should be answered, share answered with the right content; *hallucination rate* = share of non-refused answers with at least one unsupported claim; *refusal correctness* = share of all questions where answer-vs-refuse matched; *pass rate* = share with no failure of any kind.
-
-## Results (film-demo evals; the numbers below were produced on Groq `gpt-oss-120b`, before the move to Bedrock)
-
-> **Which numbers these are.** The table below is the last *completed* evaluation: **19 questions on the original 13-chunk corpus**, answered by `openai/gpt-oss-120b` and graded by the **same** model (single-call grader). Since then the corpus grew to 31 chunks, the golden set to 58 questions, and the grader became a two-step, different-model judge. **The 58-question runs, the agent comparison and the grader-accuracy numbers have not been run yet** (see "Built but not yet measured" below), so nothing below should be read as results for the new setup.
-
-Eval `4276d06599`, 19 questions, 0 errors, data in `results/eval_report.json`:
-
-| Metric | Value |
+| Command | What it does |
 |---|---|
-| Answered-correctly rate | 100.0% |
-| Hallucination rate | 0.0% |
-| Refusal correctness | 100.0% |
-| Citation rate | 100.0% |
-| Overall pass rate | 100.0% (95% Wilson CI for 19/19 is roughly 83-100%) |
-| Avg latency | 11.1 s (see note) |
-| Avg cost / question (est.) | $0.00055 (about 1,430 input + 450 output tokens, 2.7 LLM calls) |
+| `make setup` | Create the venv, install dependencies, create `.env` |
+| `make test` / `make lint` | 252 offline tests (fake models, no AWS) / ruff |
+| `make assure` / `make assure-gate` | Run the assurance suite on Bedrock (a few cents); the gate exits 1 if `evals/assure/thresholds.json` is violated |
+| `make audit-verify` | Verify the audit hash chain |
+| `make dashboard-build` | Rebuild the dashboard data and the login-protected bundle |
+| `make serve` | Preview the dashboard locally (the login exists only once deployed) |
+| `make serve-api` / `make create-user NAME=...` | The document service / mint an API key |
+| `make longdoc` | Retrieval benchmark on Pinecone (no LLM tokens) |
 
-| Category | n | Pass rate | Hallucinations |
-|---|---|---|---|
-| answerable | 4 | 100% | 0 |
-| multi_hop | 3 | 100% | 0 |
-| thin_data | 3 | 100% | 0 |
-| contradiction_trap | 3 | 100% | 0 |
-| unanswerable | 3 | 100% | 0 |
-| prompt_injection | 3 | 100% | 0 |
+## Not built yet
 
-**Read these numbers carefully.**
-- It is **one run of 19 questions**, so the interval is wide, and the agent is not deterministic. An **earlier full run** (the dashboard's "Earlier" selector) scored 89.5%: the judge caught a real embellishment on the thin Dragon entry ("Luger's role... drives the narrative", which the corpus never says), and it also falsely flagged "That is not in the knowledge base." as an unsupported claim. The second was an evaluator bug, fixed by filtering refusal sentences deterministically. The first is the system working as intended.
-- **Latency is inflated by free-tier rate limiting** (44 retries in that run; individual runs 1.4 s to 20 s). Do not read 11 s as model speed.
-- "Cost" is what the tokens would cost at paid rates; on Groq's free tier the real spend is $0.
+- A real payments-regulation corpus (for example RBI circulars) fetched and evaluated through the document service; the service has only been measured on a generated 410-page document.
+- The PII, numeric and audit controls inside the document service (they exist in the assurance layer).
+- A second model compared on the assurance suite, and a larger scenario set.
+- Scheduled evals in CI (the suite spends AWS money, so it runs on demand), and per-user accounts for the dashboard.
 
-## Limitations: what changed and what is still true
+## History
 
-| Original limitation | Now | Still true |
-|---|---|---|
-| Tiny corpus (13 chunks), 19 questions | **Public-data slice added:** a 131-paragraph SQuAD 2.0 knowledge base with 60 human-written questions, half unanswerable (`make benchmarks`, `make eval-squad`; built and smoke-tested, full run pending). Own corpus is 31 chunks (adds six Nolan films, a thin entry and a "not one universe" note); golden set is 58 questions across the same six categories, with questions the model likely *knows* but the KB lacks (must refuse); 95% Wilson confidence intervals on every rate | The film corpus is still author-written, not a benchmark; the SQuAD slice is real but small and has known label noise (see `docs/DATA_SOURCES.md`). Intervals at n=58-60 are still wide |
-| Judge shares the answerer's blind spots; one call | Grader defaults to a different model family (`qwen/qwen3.8-27b`); claim extraction and verification are separate calls; a 38-item author-written labelled set (`make judge-check`) **plus 80 human-annotated items from RAGTruth and FEVER** (`make judge-check-human`, downloaded on demand) measure the grader's accuracy; refusal sentences filtered deterministically | **The grader-accuracy numbers have not been produced yet** (only an 8-item smoke check: 7/8 agreed with the human labels, which is a pipeline check, not a result). The 38 author-written labels are still not independent, but the RAGTruth/FEVER labels are. LLM judges remain imperfect and vary run to run |
-| Coarse keyword checks | Unchanged | Still coarse; the grounding judge, not keywords, catches wrong facts |
-| Cost estimated, latency includes waits | Price table now covers all three free models; documented that real free-tier spend is $0 | Still an estimate; latency still includes rate-limit waits |
-| Tracing synchronous, local SQLite | Optional `batch` mode (background thread) and `kafka` mode (stream to a topic, consumer writes SQLite); SQLite in WAL mode for parallel eval workers | Default is still direct SQLite; not built for high volume |
-| CI runs lint + offline tests only | Added a weekly **scheduled eval** workflow that appends to `results/history.jsonl` (Trends tab) | **It has not run yet**: it needs a repository secret `GROQ_API_KEY` (free key). Without it the job exits cleanly |
-
-Other honest caveats: free-tier limits are real. Groq's free tier caps each model at 200,000 tokens/day and 8,000 tokens/minute; during this work `gpt-oss-120b` hit its daily cap mid-evaluation, which is why the 58-question runs are pending. Evals can now run several questions in parallel (`--workers`) and use shorter timeouts, but the quota is the limit.
-
-## Built but not yet measured
-
-These exist, are covered by tests (62 offline tests; 3 live tests are skipped by default), and the infrastructure pieces were exercised against real local services. What is missing is large-scale measured *results*:
-
-| Feature | What was actually verified | Not yet done |
-|---|---|---|
-| **Second agent (naive RAG)** and paired comparison (`make eval-naive`, `make compare`) | Unit tests for the graph variant and the sign test; the dashboard "Compare agents" tab renders from `comparison.json` | No 58-question comparison run yet, so no claim about whether the judge loop helps |
-| **Lineage graph** (claims -> chunks -> documents) | Built from real eval data; **loaded into a real local Neo4j** (385 statements; 19 questions, 49 claims, 13 chunks) and queried; dashboard "Lineage" tab | Built from the 19-question run only |
-| **Kafka trace streaming** (`ACP_TRACE_MODE=kafka`) | **End-to-end with a real Kafka broker**: the agent published 6 spans, the consumer stored them in SQLite (1 run, correct tokens); failure of the broker never crashes the agent (unit test) | Not load tested; single broker |
-| **Kubernetes** | Dashboard Deployment (2 replicas) + Service built and **deployed to a local minikube** and served the page and data over a port-forward; the eval CronJob manifest passes the API server's `--dry-run=server` | The CronJob/eval image was **not built or run**; nothing deployed to a public cluster |
-| **Scheduled eval + trends** | Trend chart renders from `results/history.jsonl` (two real evals so far); workflow file written | Workflow never run on GitHub (needs the secret) |
-| **Public-data benchmarks** (SQuAD 2.0 agent eval; RAGTruth + FEVER grader eval) | Datasets downloaded with permission; converters unit-tested; smoke runs: 4 SQuAD questions (2 pass, 2 fail for data/grader-nuance reasons) and 8 grader items (7/8 agree) | Full 60-question and 80-item runs not done yet (free-tier quota) |
-| **Grader accuracy** | Harness, labels and metrics tested with a fake judge; an interrupted live run on Qwen got through 35 of 38 items before I stopped it: 32 matched the labels, 0 disagreed, 3 failed on API errors (rate limits / malformed JSON). That is a progress log, not a saved report | No complete, recorded accuracy figure |
-
-To produce the pending results once the quota is available (e.g. the next day, or with `ACP_JUDGE_MODEL`/`--agent-model openai/gpt-oss-20b` to use a different model's quota):
-
-```bash
-make eval            # 58 questions, full agent
-make eval-naive      # same questions, baseline
-make benchmarks      # one-time: download public dataset slices (see docs/DATA_SOURCES.md)
-make squad-index && make eval-squad   # 60 human-written SQuAD 2.0 questions
-make judge-check-human                 # grade the grader on RAGTruth + FEVER human labels
-make compare A=<graph_eval_id> B=<naive_eval_id>
-make judge-check
-make export          # refresh dashboard/data
-```
-
-## Still not built
-
-- A *public* cluster deployment, managed Kafka, or a hosted graph database (the film demo, Kafka, Neo4j and minikube pieces run locally; the document service needs AWS Bedrock and Pinecone accounts and is billed per token).
-- A full run over the public benchmarks (the slices, loaders and tests exist; the large runs are pending quota).
-- Evals that run in CI on every push (deliberately on a schedule, because they use API quota).
+This project began as a film-knowledge demo (a small corpus, a local FAISS index, a golden-set eval, Kafka/Neo4j/Kubernetes extras). That demo was removed so the project serves payments use cases only. It remains in git history at commit `2c77257`.
 
 ## Design decisions
 
-Short version here; full reasoning in [docs/DECISIONS.md](docs/DECISIONS.md) (entries 12-19 cover the extensions). A plain-language walkthrough for interviews is in [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md).
+Short reasoning is in [docs/DECISIONS.md](docs/DECISIONS.md); a plain-language walkthrough for interviews is in [docs/INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md); known weaknesses are in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
+- **Enforcement in code, not prompts:** the policy engine, masking and numeric check are ordinary code the model cannot talk past, and they are measured with the guards on and off.
 - **LangGraph conditional edges** instead of a while-loop: the routing rule is one pure function that is unit tested, and the retry cap is explicit.
-- **LLM-as-judge** because "is this claim supported" needs language understanding; mitigated with a strict prompt, evidence quotes, deterministic checks and (now) a different-family grader.
-- **SQLite** because it is one file, zero setup, and enough for thousands of runs; Kafka is an opt-in transport, not a replacement.
+- **SQLite** because it is one file and enough for thousands of runs; **Pinecone** for vectors because it is the managed standard; **Bedrock** so models are billed per token with a hard daily cap.

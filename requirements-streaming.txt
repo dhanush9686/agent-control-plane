@@ -1,4 +1,0 @@
-# Optional: only needed for Kafka streaming (ACP_TRACE_MODE=kafka) and the Neo4j loader.
--r requirements-server.txt
-confluent-kafka==2.12.0
-neo4j==5.28.2

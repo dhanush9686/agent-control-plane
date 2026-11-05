@@ -14,10 +14,6 @@ class MissingKeyError(ACPError):
     pass
 
 
-class EmptyIndexError(ACPError):
-    pass
-
-
 class LLMUnavailableError(ACPError):
     """The LLM provider kept failing after all retries (rate limit, timeout, outage).
 

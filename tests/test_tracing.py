@@ -73,40 +73,6 @@ def test_tracing_failure_never_crashes_the_agent(settings, monkeypatch):
     assert final["answer"] and run_id
 
 
-class FakeProducer:
-    def __init__(self):
-        self.sent = []
-
-    def produce(self, topic, key, value):
-        self.sent.append((topic, key, value))
-
-    def flush(self, timeout=0):
-        pass
-
-
-class FakeMessage:
-    def __init__(self, value):
-        self._v = value
-
-    def error(self):
-        return None
-
-    def value(self):
-        return self._v
-
-
-class FakeConsumer:
-    def __init__(self, messages):
-        self.messages = list(messages)
-        self.commits = 0
-
-    def poll(self, timeout):
-        return self.messages.pop(0) if self.messages else None
-
-    def commit(self, message=None, asynchronous=False):
-        self.commits += 1
-
-
 def test_batch_mode_writes_after_flush(settings):
     tracing = Tracing(settings, mode="batch")
     _, run_id = Agent(FakeLLM(), FakeRetriever(), settings, tracing).ask("who?")
@@ -120,46 +86,6 @@ def test_unknown_trace_mode_is_rejected(settings):
 
     with pytest.raises(ValueError, match="unknown trace mode"):
         Tracing(settings, mode="carrier-pigeon")
-
-
-def test_kafka_roundtrip_matches_direct_sqlite(settings, tmp_path):
-    from acp.streaming import consume
-    from acp.tracing import KafkaSpanExporter
-
-    producer = FakeProducer()
-    tracing = Tracing(settings, mode="kafka", exporter=KafkaSpanExporter(producer, "acp.spans"))
-    _, run_id = Agent(FakeLLM(), FakeRetriever(), settings, tracing).ask("who?")
-    assert producer.sent and all(t == "acp.spans" and k == run_id for t, k, _ in producer.sent)
-    assert (
-        not settings.db_path.exists()
-        or store.connect(settings.db_path).execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 0
-    )
-
-    db2 = tmp_path / "consumed.db"
-    consumer = FakeConsumer([FakeMessage(v) for _, _, v in producer.sent])
-    n = consume(consumer, db2, idle_polls=2)
-    assert n == len(producer.sent) and consumer.commits == n
-    run = store.connect(db2).execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
-    assert run["llm_calls"] == 2 and run["input_tokens"] == 300
-
-
-def test_consumer_skips_poison_messages_and_is_idempotent(settings, tmp_path):
-    from acp.streaming import consume
-
-    producer_msgs = [FakeMessage("not json"), FakeMessage("{}")]
-    assert consume(FakeConsumer(producer_msgs), tmp_path / "x.db", idle_polls=2) == 0
-
-
-def test_kafka_exporter_failure_never_crashes_agent(settings):
-    from acp.tracing import KafkaSpanExporter
-
-    class Broken(FakeProducer):
-        def produce(self, *a, **k):
-            raise RuntimeError("broker down")
-
-    tracing = Tracing(settings, mode="kafka", exporter=KafkaSpanExporter(Broken()))
-    final, _ = Agent(FakeLLM(), FakeRetriever(), settings, tracing).ask("who?")
-    assert final["answer"]
 
 
 def test_runs_are_tagged_with_user_and_document(settings):

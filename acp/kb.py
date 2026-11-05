@@ -1,7 +1,8 @@
 """The knowledge-base store: one searchable index per uploaded document, owned by one user.
 
-Analogy: a filing cabinet with one locked drawer per document. A drawer holds the vector index (FAISS file) and
-the chunk text/page numbers (SQLite rows, also keyword-indexed). Deleting a document empties its drawer completely.
+Analogy: a filing cabinet with one locked drawer per document. A drawer holds the vector index (a Pinecone
+namespace) and the chunk text/page numbers (SQLite rows, also keyword-indexed). Deleting a document empties its
+drawer completely.
 
 Layout:  <kb_root>/<owner_id>/<doc_id>/source.pdf  on disk; chunk rows in SQLite; vectors in Pinecone
 (namespace = owner_id, vector id = '<doc_id>#<position>'). Chunk TEXT never leaves our database.

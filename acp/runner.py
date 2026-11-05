@@ -20,10 +20,7 @@ from acp.tracing import TracedLLM, Tracing, trace_node
 class Agent:
     """A ready-to-ask agent. Pass `tracing=None` to run without recording anything."""
 
-    def __init__(
-        self, llm: LLM, retriever: Retriever, settings: Settings, tracing: Tracing | None = None, kind: str = "graph"
-    ) -> None:
-        self.kind = kind
+    def __init__(self, llm: LLM, retriever: Retriever, settings: Settings, tracing: Tracing | None = None) -> None:
         self.settings = settings
         self.tracing = tracing
         if tracing is not None:
@@ -33,7 +30,6 @@ class Agent:
             retriever,
             settings,
             wrap_node=(lambda n, f: trace_node(n, f, tracing)) if tracing else None,
-            kind=kind,
         )
 
     def ask(
@@ -58,9 +54,8 @@ class Agent:
     def _retrieved_for_trace(self, docs: list[Any]) -> list[dict[str, Any]]:
         """What to remember about the retrieved chunks.
 
-        The built-in corpus keeps full text (the dashboard shows it). Chunks from a user's uploaded document keep
-        only ids and page numbers unless ACP_STORE_CHUNK_TEXT=1, so a trace cannot become a second copy of their
-        private document.
+        Chunks from a user's uploaded document keep only ids and page numbers unless ACP_STORE_CHUNK_TEXT=1, so a
+        trace cannot become a second copy of their private document. Chunks without a citation keep their text.
         """
         out = []
         for d in docs:

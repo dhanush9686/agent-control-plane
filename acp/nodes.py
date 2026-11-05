@@ -41,7 +41,7 @@ _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 def is_document_chunk(d: Document) -> bool:
-    """Chunks from an uploaded file carry a `citation` (e.g. 'report.pdf p.37'); the built-in corpus does not."""
+    """Chunks from an uploaded file carry a page-aware `citation` (e.g. 'report.pdf p.37')."""
     return "citation" in d.metadata
 
 
@@ -54,8 +54,8 @@ def neutralize(text: str) -> str:
 def format_docs(docs: list[Document]) -> str:
     """Render chunks with their source label so the LLM can cite (and sees words like 'unreleased').
 
-    Built-in corpus chunks render exactly as before. Uploaded-document chunks use their page-aware `citation`
-    label and are wrapped in <excerpt> tags with neutralized brackets, because that text is untrusted.
+    Uploaded-document chunks use their page-aware `citation` label and are wrapped in <excerpt> tags with
+    neutralized brackets, because that text is untrusted. A chunk without a citation renders with its plain source.
     """
     parts = []
     for d in docs:

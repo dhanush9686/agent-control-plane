@@ -1,8 +1,0 @@
-{
-  "answered_correctly_rate": {"min": 0.8},
-  "hallucination_rate": {"max": 0.15},
-  "refusal_correctness": {"min": 0.85},
-  "citation_rate": {"min": 0.9},
-  "pass_rate": {"min": 0.75},
-  "n_errors": {"max": 1}
-}

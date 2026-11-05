@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["live: calls the real Groq API (needs GROQ_API_KEY and RUN_LIVE=1); skipped by default"]
+markers = ["live: calls real AWS services (needs credentials and RUN_LIVE=1); skipped by default"]
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]

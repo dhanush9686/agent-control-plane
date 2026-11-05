@@ -2,10 +2,10 @@
 
 import pytest
 from botocore.exceptions import ClientError, ReadTimeoutError
+from pydantic import BaseModel
 
 from acp.config import Settings
 from acp.errors import LLMUnavailableError, ModelAccessError
-from acp.evals.grounding import GroundingReport
 from acp.llm import (
     GIVE_UP_IF_ASKED_TO_WAIT_S,
     MAX_SLEEP_S,
@@ -70,10 +70,10 @@ def llm(client, **kw):
 
 # ------------------------------------------------------------------ complete
 def test_complete_sends_a_converse_request_and_maps_tokens():
-    client = FakeBedrock(text_reply("Rocky kills Garuda.", 120, 7))
+    client = FakeBedrock(text_reply("Refunds are credited within 5 working days.", 120, 7))
     res = llm(client).complete("who?", purpose="synthesize")
     assert (res.text, res.input_tokens, res.output_tokens, res.model) == (
-        "Rocky kills Garuda.",
+        "Refunds are credited within 5 working days.",
         120,
         7,
         "apac.amazon.nova-micro-v1:0",
@@ -107,8 +107,18 @@ def test_structured_forces_a_tool_call_with_the_pydantic_schema():
     assert "title" not in schema and "$defs" not in schema
 
 
+class Claim(BaseModel):
+    claim: str
+    supported: bool
+    evidence: str = ""
+
+
+class Report(BaseModel):
+    claims: list[Claim]
+
+
 def test_nested_schemas_are_inlined_for_the_tool_spec():
-    schema = inline_json_schema(GroundingReport.model_json_schema())
+    schema = inline_json_schema(Report.model_json_schema())
     assert "$ref" not in str(schema) and "$defs" not in str(schema)
     item = schema["properties"]["claims"]["items"]
     assert item["type"] == "object" and set(item["properties"]) == {"claim", "supported", "evidence"}

@@ -11,7 +11,7 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
-# local databases (the sample traces file is allowed back in below)
+# local databases (the dashboard's saved data files are allowed back in below)
 *.db
 *.sqlite
 *.sqlite3
@@ -22,15 +22,10 @@ __pycache__/
 .vercel/
 node_modules/
 
-# built artifacts (rebuilt by `make setup`)
-data/faiss_index/
+# SQLite side files
 *.db-shm
 *.db-wal
 *.db-journal
-
-# downloaded public benchmark slices (fetched on demand; see docs/DATA_SOURCES.md)
-data/benchmarks/
-data/faiss_squad2/
 
 # document-service data (local)
 data/kb/
