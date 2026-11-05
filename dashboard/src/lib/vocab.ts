@@ -27,5 +27,5 @@ export const GUARDRAILS = [
   { key: "numbers", title: "Real numbers only", short: "Every amount must come from the records.", kind: "unsupported_amount",
     long: "Any figure in an answer must come from a tool result or from the user's own message. Otherwise the answer is withheld, so the agent cannot invent an amount." },
   { key: "audit", title: "Tamper-evident log", short: "Each entry fingerprints the one before.", kind: "unauthorized_refund",
-    long: "Every request lands in a SHA-256 hash-chained log. Editing an old entry breaks every later link. That shows tampering; it does not prevent it." },
+    long: "Every request lands in a tamper-evident log. Editing an old entry breaks every later link. That shows tampering; it does not prevent it." },
 ] as const;

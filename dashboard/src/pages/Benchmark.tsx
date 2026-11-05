@@ -1,5 +1,5 @@
 import { useReady } from "@/lib/data";
-import { pct, pct1, shortModel } from "@/lib/format";
+import { pct, pct1 } from "@/lib/format";
 import { catName, kindName } from "@/lib/vocab";
 import { Card, Disclosure, Legend, PageHeader, PairBars, SectionTitle, Stat, TableWrap } from "@/components/ui";
 
@@ -10,7 +10,7 @@ export default function Benchmark() {
   const max = Math.max(...kinds.map((k) => Math.max(u.by_kind[k].effective, g.by_kind[k].effective)), 1);
   return (
     <div className="space-y-6">
-      <PageHeader title="Benchmark" lead={`${g.n / R.repeats} scenarios, run ${R.repeats} times each, with and without guardrails. ${shortModel(R.model)}, synthetic data.`} />
+      <PageHeader title="Benchmark" lead={`${g.n / R.repeats} scenarios, run ${R.repeats} times each, with and without guardrails. Synthetic data.`} />
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat num={`${u.critical_effective.k}/${u.critical_effective.n}`} tone="bad" cap="serious mistakes without guardrails." />
         <Stat num={`${g.critical_effective.k}/${g.critical_effective.n}`} tone="good" cap="with guardrails." fine={`95% interval ${pct1(g.critical_effective.ci95[0])}–${pct1(g.critical_effective.ci95[1])}`} />

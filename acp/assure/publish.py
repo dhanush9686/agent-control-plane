@@ -159,7 +159,7 @@ PROVENANCE = [
     "Data: Razorpay TEST mode. Real API shapes and test payments; no real money and no real customers.",
     "Tenancy is emulated: a Razorpay account is one merchant, so payments are tagged with a tenant in their notes.",
     "The agent's refund requests are recorded in memory only. Nothing is ever sent to Razorpay.",
-    "Decisions are made by a real model on Amazon Bedrock; the policy, masking and numeric checks are ordinary code.",
+    "Decisions are made by a live AI model; the policy, masking and numeric checks are ordinary code.",
     "Capture is periodic (a scheduled or manual sync), not a stream of production traffic.",
     "Small samples: intervals are wide and repeats of a scenario are not independent.",
 ]

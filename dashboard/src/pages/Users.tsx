@@ -38,7 +38,7 @@ export default function Users() {
                 ))}</tbody>
               </TableWrap>
             ) : <p className="text-sm text-muted">No accounts yet.</p>}
-            <p className="mt-4 text-xs text-faint">Add or disable people with <code className="font-mono">make dashboard-user</code>. Admins can see this page; viewers see everything else.</p>
+            <p className="mt-4 text-xs text-faint">Admins see this page. Viewers see everything else.</p>
           </Card>
           <Card>
             <SectionTitle>Recent sign-ins</SectionTitle>

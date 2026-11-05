@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowRight, Activity, ScrollText, Swords } from "lucide-react";
 import { useReady } from "@/lib/data";
-import { ageText, freshness, pct, pct1, shortModel, usd } from "@/lib/format";
+import { ageText, freshness, pct, pct1, usd } from "@/lib/format";
 import { KIND_LABEL, SOURCE_LABEL } from "@/lib/vocab";
 import { Badge, Card, Disclosure, PageHeader, PairBars, SectionTitle, Stat } from "@/components/ui";
 import { ArchitectureGraph, RunItem, RunBadges } from "@/components/domain";
@@ -34,7 +34,7 @@ function LiveActivity() {
       {stuck && <p className="mb-3 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">Some items have waited over two minutes. The worker is not running.</p>}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <div className="flex items-start justify-between"><div className="text-sm font-medium">Webhook events</div><Link to="/app/events" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
+          <div className="flex items-start justify-between"><div className="text-sm font-medium">Payment events</div><Link to="/app/events" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Open <ArrowRight className="size-3.5" /></Link></div>
           {events && events.configured ? (
             <>
               <div className="mt-2 flex items-baseline gap-2"><span className="text-3xl font-semibold tabular-nums">{evs.length}</span><span className="text-sm text-muted">received · {evDone.length} handled · {events.queue} waiting</span></div>
@@ -72,7 +72,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader title={`${greeting()}.`} lead={<>{g.n} test runs on {shortModel(R.model)}, synthetic data.</>}
+      <PageHeader title={`${greeting()}.`} lead={<>{g.n} test runs on synthetic data.</>}
         right={fr && <Badge tone={fr.tone} dot>{fr.text} · {ageText(latest!.finished_at)}</Badge>} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -80,7 +80,7 @@ export default function Dashboard() {
         <Stat num={pct(g.critical_effective.rate)} tone="good" cap="with guardrails on." fine={`${g.critical_effective.k} of ${g.critical_effective.n} · 95% interval ${pct1(g.critical_effective.ci95[0])}–${pct1(g.critical_effective.ci95[1])}`} />
         <Stat num={pct(g.pass.rate)} cap="of benchmark tests passed." fine={`${pct(u.pass.rate)} without guardrails`} />
         {liveG && latest
-          ? <Stat num={`${liveG.k}/${liveG.n}`} cap="passed in the latest live check." fine={`${usd(latest.cost_usd)} · ${shortModel(latest.model)}`} />
+          ? <Stat num={`${liveG.k}/${liveG.n}`} cap="passed in the latest live check." fine={usd(latest.cost_usd)} />
           : <Stat num="n/a" cap="No live check yet." />}
       </div>
 

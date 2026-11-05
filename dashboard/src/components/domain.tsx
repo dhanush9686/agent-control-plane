@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { Graph, type GNode, type GEdge } from "./Graph";
 import { Badge, GraphKey } from "./ui";
 import { useNarrow } from "./hooks";
-import { ageText, clip, ms, shortModel, usd } from "@/lib/format";
+import { ageText, clip, ms, usd } from "@/lib/format";
 import { catName, kindName } from "@/lib/vocab";
 import type { ChainRow, Live, LiveLatest, ReplaySide, RunRecord, Step } from "@/lib/types";
 
@@ -23,7 +23,7 @@ export function ArchitectureGraph({ flow }: { flow?: boolean }) {
         approval: { title: "Human approval", sub: "Refunds are drafts", cls: "info" },
         filters: { title: "Safety filters", sub: "Mask cards. Verify figures.", cls: "accent" },
         answer: { title: "Answer", sub: "Only what passed" },
-        audit: { title: "Audit log", sub: "Hash-chained", cls: "info" },
+        audit: { title: "Audit log", sub: "Tamper-evident", cls: "info" },
       }}
       edges={[["user", "agent"], ["agent", "policy"], ["policy", "ledger"], ["policy", "approval"], ["ledger", "filters"], ["approval", "filters"], ["filters", "answer"], ["filters", "audit", { dashed: true }]]} />
   );
@@ -151,11 +151,11 @@ export function LineageGraph({ live, latest, src }: { live: Live; latest: LiveLa
   const snap = live.snapshot ?? latest.snapshot;
   const nodes: Record<string, GNode> = {
     src: { title: razor ? "Razorpay test account" : "Sample records", sub: razor ? "Read-only" : "Fake merchants", cls: "info" },
-    snap: razor && snap ? { title: `${snap.payments} payments`, sub: `Snapshot ${(snap.sha256 || "").slice(0, 8)}, no personal data` } : { title: "Fixed sample set", sub: "Same every time" },
+    snap: razor && snap ? { title: `${snap.payments} payments`, sub: "No personal data" } : { title: "Fixed sample set", sub: "Same every time" },
     scn: { title: `${g.n} scenarios`, sub: razor ? "Built from those payments" : "Hand-written" },
-    run: { title: "AI runs each twice", sub: `${shortModel(latest.model)}: with and without`, cls: "accent" },
+    run: { title: "AI runs each twice", sub: "With and without guardrails", cls: "accent" },
     aud: { title: "Audit chain", sub: a ? `${a.total_rows} entries, ${a.chain_ok ? "intact" : "broken"}` : "Unavailable", cls: a ? (a.chain_ok ? "ok" : "bad") : "warn" },
-    store: { title: "Published results", sub: live.via === "redis" ? "Redis" : "Saved copy", cls: "info" },
+    store: { title: "Published results", sub: live.via === "redis" ? "Live" : "Saved copy", cls: "info" },
     page: { title: "This page", sub: "Behind the login" },
   };
   return (

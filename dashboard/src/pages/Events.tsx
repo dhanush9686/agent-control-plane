@@ -108,7 +108,7 @@ function TriggerPanel({ onSent }: { onSent: () => void }) {
           <CreditCard className="size-4" />{busy ? "Opening…" : "Simulate a payment"}
         </motion.button>
       </div>
-      {!isTestKey && <p className="mt-3 text-sm text-warn">Checkout is off: this build has no <code className="font-mono text-xs">VITE_RAZORPAY_KEY_ID</code> test key.</p>}
+      {!isTestKey && <p className="mt-3 text-sm text-warn">Test payments are unavailable in this build.</p>}
       {msg && <p className="mt-3 text-sm text-muted" role="status">{msg}</p>}
       <p className="mt-4 text-xs text-faint">Test UPI: <code className="font-mono">success@razorpay</code> or <code className="font-mono">failure@razorpay</code>.</p>
     </Card>
@@ -185,7 +185,7 @@ export default function Events() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Live events" lead="Test-mode webhooks, handled by the agent as they arrive."
+      <PageHeader title="Live events" lead="Test-mode payment events, handled by the agent as they arrive."
         right={<Badge tone="accent" dot><Radio className="mr-1 inline size-3" />Polling every {POLL_MS / 1000}s</Badge>} />
       <TriggerPanel onSent={() => window.setTimeout(reload, 1500)} />
 

@@ -1,6 +1,5 @@
 import { Link } from "react-router";
 import { useReady } from "@/lib/data";
-import { shortModel } from "@/lib/format";
 import { GUARDRAILS } from "@/lib/vocab";
 import { Badge, Card, GraphKey, PageHeader, SectionTitle } from "@/components/ui";
 import { ArchitectureGraph, LineageGraph } from "@/components/domain";
@@ -59,7 +58,7 @@ export function DataLineage() {
       <PageHeader title="Data and lineage" lead="Where every number on this site comes from." />
       <Card>
         <SectionTitle>Saved benchmark</SectionTitle>
-        <p className="text-sm leading-relaxed text-muted">{assure.real_run.summary.guarded.n} runs per mode on {shortModel(assure.real_run.model)}, synthetic ledger.</p>
+        <p className="text-sm leading-relaxed text-muted">{assure.real_run.summary.guarded.n} runs per mode, synthetic ledger.</p>
       </Card>
       {latest && live ? (
         <>
@@ -68,7 +67,7 @@ export function DataLineage() {
           ))}
           <Card>
             <SectionTitle>Provenance</SectionTitle>
-            <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted">{(latest.provenance ?? []).map((t) => t.replace(/\s*Not affiliated with Razorpay\.?/i, "")).filter(Boolean).map((t, i) => <li key={i}>{t}</li>)}</ul>
+            <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted">{(latest.provenance ?? []).map((t) => t.replace(/\s*Not affiliated with Razorpay\.?/i, "").replace("a real model on Amazon Bedrock", "a live AI model")).filter(Boolean).map((t, i) => <li key={i}>{t}</li>)}</ul>
           </Card>
         </>
       ) : <Card><p className="text-sm text-muted">No live sync yet. <Link className="text-accent" to="/app/live">Live check</Link></p></Card>}
@@ -83,7 +82,7 @@ export function About() {
     "Tenancy is emulated, and the test account has no refunds or settlements, so those paths use sample data.",
     "“Without guardrails” is a deliberately unprotected baseline, not a claim about any real system.",
     "The audit chain is tamper-evident, not tamper-proof.",
-    "Live events are test-mode webhooks handled by a worker; the page polls rather than streams.",
+    "Live events come from test-mode payments and refresh every few seconds, not instantly.",
   ];
   return (
     <div className="space-y-6">

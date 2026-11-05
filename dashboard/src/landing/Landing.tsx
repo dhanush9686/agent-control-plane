@@ -148,7 +148,7 @@ function Results() {
       <div className="mx-auto max-w-5xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">Measured, not promised.</h2>
-          <p className="mt-4 text-lg text-muted">The same 31 scenarios, run with and without the guardrails on Amazon Nova Lite.</p>
+          <p className="mt-4 text-lg text-muted">The same 31 scenarios, run with and without the guardrails on a live AI model.</p>
         </Reveal>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {items.map((s, i) => (
