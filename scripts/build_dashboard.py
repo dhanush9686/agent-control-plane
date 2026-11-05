@@ -93,7 +93,9 @@ def main(argv: list[str]) -> int:
     else:
         live_file.unlink(missing_ok=True)
     # Bundle every dashboard data file into the serverless function so no data file is publicly served.
-    bundle = {p.stem: json.loads(p.read_text()) for p in sorted(out.glob("*.json"))}
+    bundle = {
+        p.stem: json.loads(p.read_text()) for p in sorted(out.glob("*.json")) if ".dev." not in p.name
+    }  # *.dev.json are local fixtures
     api = DASH / "api"
     api.mkdir(exist_ok=True)
     (api / "_data.js").write_text(
