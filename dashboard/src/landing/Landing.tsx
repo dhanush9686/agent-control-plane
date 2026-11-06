@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
 import clsx from "clsx";
 import { ArrowRight, BadgeCheck, Fingerprint, Hash, Moon, ScanEye, ShieldCheck, Sun, UserCheck } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -32,12 +32,18 @@ function Words({ text, className, delay = 0 }: { text: string; className?: strin
   );
 }
 
+function ScrollBar() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 28, restDelta: 0.001 });
+  return <motion.div aria-hidden style={{ scaleX }} className="absolute inset-x-0 -bottom-px h-[2px] origin-left bg-accent" />;
+}
+
 function Nav() {
   const { theme, toggle } = useTheme();
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line bg-bg/70 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-        <Link to="/" className="flex items-center gap-2.5"><Logo size={32} /><span className="text-[15px] font-semibold tracking-tight">Control Plane</span></Link>
+        <Link to="/" className="flex items-center gap-2.5"><Logo size={32} /><span className="text-[15px] font-semibold tracking-tight">Countersign</span></Link>
         <nav className="hidden items-center gap-7 text-sm text-muted md:flex" aria-label="Page sections">
           {[["#demo", "Demo"], ["#results", "Results"], ["#how", "How it works"], ["#guardrails", "Guardrails"], ["#limits", "Limits"]].map(([h, t]) => <a key={h} href={h} className="transition-colors hover:text-fg">{t}</a>)}
         </nav>
@@ -47,6 +53,7 @@ function Nav() {
           <Link to="/login" className="rounded-full bg-fg px-4 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-85">Open dashboard</Link>
         </div>
       </div>
+      <ScrollBar />
     </header>
   );
 }
@@ -62,7 +69,7 @@ function Hero() {
       <motion.div aria-hidden className="pointer-events-none absolute left-1/2 top-0 size-[620px] -translate-x-1/2 rounded-full bg-accent/20 blur-[120px]" animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
       <motion.div style={{ y, opacity: fade }} className="relative mx-auto max-w-4xl text-center">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mb-7 inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3.5 py-1.5 text-xs font-medium text-muted backdrop-blur">
-          <span className="size-1.5 rounded-full bg-good" />Assurance layer for AI agents that touch money
+          <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-good opacity-60" /><span className="relative size-2 rounded-full bg-good" /></span><span className="font-semibold text-fg">Countersign</span><span className="hidden text-faint sm:inline">·</span><span className="hidden sm:inline">Guardrails for AI agents that touch money</span>
         </motion.div>
         <h1 className="text-[44px] font-semibold leading-[1.04] tracking-[-0.035em] sm:text-[72px]">
           <Words text="AI that handles money," /><br />
@@ -75,8 +82,64 @@ function Hero() {
           <Link to="/login" className="group inline-flex items-center gap-2 rounded-full bg-fg px-6 py-3 text-[15px] font-medium text-bg transition-transform hover:scale-[1.03]">Sign in to the dashboard<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></Link>
           <a href="#demo" className="rounded-full border border-line-strong px-6 py-3 text-[15px] font-medium transition-colors hover:bg-sunken">Watch an attack</a>
         </motion.div>
+        <Pipeline />
       </motion.div>
     </section>
+  );
+}
+
+const STEPS = ["Request", "Agent", "Policy"];
+function Pipeline() {
+  const reduce = useReducedMotion();
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (reduce) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [reduce]);
+  const blocked = Math.floor(tick / 7) % 2 === 1;
+  const step = reduce ? 3 : Math.min(tick % 7, 3);
+  const nodes = [...STEPS, blocked ? "Blocked" : "Countersigned"];
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.8, ease: EASE }} className="mx-auto mt-14 max-w-xl" role="img"
+      aria-label="A request passes through the agent and the policy check, and is either countersigned or blocked.">
+      <div className="flex items-center">
+        {nodes.map((n, i) => (
+          <Fragment key={i}>
+            <div className={clsx("rounded-xl border px-2.5 py-2 text-[11px] font-medium transition-colors duration-500 sm:px-4 sm:text-[13px]",
+              i > step ? "border-line bg-surface/60 text-faint" : i === 3 ? (blocked ? "border-bad bg-bad-soft text-bad" : "border-good bg-good-soft text-good") : "border-accent bg-accent-soft text-accent")}>{n}</div>
+            {i < 3 && (
+              <div className="relative mx-1 h-px min-w-3 flex-1 bg-line-strong sm:mx-2">
+                <motion.div className="absolute inset-0 origin-left bg-accent" animate={{ scaleX: step > i ? 1 : 0 }} transition={{ duration: 0.5, ease: EASE }} />
+              </div>
+            )}
+          </Fragment>
+        ))}
+      </div>
+      <div className="mt-4 h-5 text-xs text-faint" aria-hidden>
+        <AnimatePresence mode="wait">
+          {step === 3 && (
+            <motion.p key={String(blocked)} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              {blocked ? "Injected refund stopped: not_named_by_user" : "Refund drafted and waiting for a human to approve"}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
+const TERMS = ["Policy engine", "Card and Aadhaar masking", "Numeric fidelity check", "Human-approved refunds", "Idempotency keys", "Hash-chained audit log", "Own-data isolation", "Test mode only"];
+function Marquee() {
+  const row = [...TERMS, ...TERMS];
+  return (
+    <div aria-hidden className="border-y border-line bg-sunken py-4">
+      <div className="overflow-hidden" style={{ maskImage: "linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)" }}>
+        <motion.div className="flex w-max whitespace-nowrap text-sm font-medium text-muted" animate={{ x: ["0%", "-50%"] }} transition={{ duration: 36, repeat: Infinity, ease: "linear" }}>
+          {row.map((t, i) => <span key={i} className="flex items-center gap-10 pr-10">{t}<i className="size-1 rounded-full bg-accent" /></span>)}
+        </motion.div>
+      </div>
+    </div>
   );
 }
 
@@ -119,7 +182,7 @@ function Demo() {
               <span className={clsx("w-8 text-left", on ? "text-good" : "text-bad")}>{on ? "On" : "Off"}</span>
             </button>
           </div>
-          <div className="min-h-[300px] space-y-2.5 p-5 font-mono text-[13px] sm:p-7">
+          <div className="relative min-h-[300px] space-y-2.5 p-5 pb-16 font-mono text-[13px] sm:p-7 sm:pb-16">
             <AnimatePresence mode="popLayout">
               {lines.map((l, i) => (
                 <motion.div key={(on ? "on" : "off") + i} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.45, duration: 0.4 }}
@@ -128,6 +191,13 @@ function Demo() {
                   <span className="min-w-0 break-words font-sans text-sm leading-relaxed">{l.text}</span>
                 </motion.div>
               ))}
+            </AnimatePresence>
+            <AnimatePresence mode="wait">
+              <motion.div key={on ? "stamp-on" : "stamp-off"} aria-hidden initial={{ opacity: 0, scale: 2.2, rotate: -14 }} animate={{ opacity: 1, scale: 1, rotate: -6 }} exit={{ opacity: 0 }}
+                transition={{ delay: lines.length * 0.45 + 0.1, type: "spring", stiffness: 380, damping: 18 }}
+                className={clsx("pointer-events-none absolute bottom-4 right-5 rounded-lg border-2 px-3 py-1 font-sans text-xs font-bold uppercase tracking-[0.18em]", on ? "border-good text-good" : "border-bad text-bad")}>
+                {on ? "Blocked" : "Money moved"}
+              </motion.div>
             </AnimatePresence>
           </div>
         </Reveal>
@@ -139,9 +209,9 @@ function Demo() {
 
 function Results() {
   const items = [
-    { num: "36/93", cap: "runs ended in a serious mistake with the guardrails off.", fine: "38.7% · 31 scenarios × 3 repeats", tone: "text-bad" },
-    { num: "0/93", cap: "with the guardrails on.", fine: "95% interval 0.0–4.0%", tone: "text-good" },
-    { num: "88/93", cap: "tests passed with guardrails, against 46/93 without.", fine: "Scored from ledger ground truth, no AI judge", tone: "text-fg" },
+    { num: "36/93", cap: "runs ended in a serious mistake with the guardrails off.", fine: "38.7% · 31 scenarios × 3 repeats", tone: "text-bad", pct: 38.7, bar: "bg-bad" },
+    { num: "0/93", cap: "with the guardrails on.", fine: "95% interval 0.0–4.0%", tone: "text-good", pct: 0, bar: "bg-good" },
+    { num: "88/93", cap: "tests passed with guardrails, against 46/93 without.", fine: "Scored from ledger ground truth, no AI judge", tone: "text-fg", pct: 94.6, bar: "bg-fg" },
   ];
   return (
     <section id="results" className="scroll-mt-20 border-y border-line bg-sunken px-5 py-24">
@@ -157,6 +227,9 @@ function Results() {
                 <CountUp value={s.num} className={clsx("block text-6xl font-semibold tracking-tight tabular-nums", s.tone)} />
                 <p className="mt-4 text-[15px] leading-snug">{s.cap}</p>
                 <p className="mt-2 text-xs text-faint">{s.fine}</p>
+                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden>
+                  <motion.div className={clsx("h-full origin-left rounded-full", s.bar)} style={{ width: `${s.pct}%` }} initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 1.2, delay: 0.3 + i * 0.1, ease: EASE }} />
+                </div>
               </motion.div>
             </Reveal>
           ))}
@@ -188,6 +261,21 @@ const CARDS = [
   { icon: BadgeCheck, title: "Real numbers only", text: "Every amount in an answer must come from the records, or the answer is withheld.", span: "" },
   { icon: Hash, title: "Tamper-evident log", text: "Each audit entry fingerprints the one before it. Edit one and every later link breaks.", span: "" },
 ];
+function Spot({ children }: { children: React.ReactNode }) {
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    e.currentTarget.style.setProperty("--my", `${e.clientY - r.top}px`);
+  };
+  return (
+    <motion.div whileHover={{ y: -4 }} onMouseMove={onMove} className="group relative h-full overflow-hidden rounded-3xl border border-line bg-surface p-7 shadow-card transition-colors hover:border-line-strong">
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: "radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), var(--accent-soft), transparent 70%)" }} />
+      {children}
+    </motion.div>
+  );
+}
+
 function Guardrails() {
   return (
     <section id="guardrails" className="scroll-mt-20 px-5 py-24">
@@ -199,12 +287,11 @@ function Guardrails() {
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {CARDS.map((c, i) => (
             <Reveal key={c.title} delay={i * 0.06} className={c.span}>
-              <motion.div whileHover={{ y: -4 }} className="group relative h-full overflow-hidden rounded-3xl border border-line bg-surface p-7 shadow-card">
-                <div className="absolute -right-10 -top-10 size-36 rounded-full bg-accent/10 blur-2xl transition-opacity group-hover:opacity-100 sm:opacity-0" />
-                <c.icon className="relative mb-5 size-7 text-accent" strokeWidth={1.7} />
+              <Spot>
+                <c.icon className="relative mb-5 size-7 text-accent transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110" strokeWidth={1.7} />
                 <h3 className="relative text-xl font-semibold tracking-tight">{c.title}</h3>
                 <p className="relative mt-2 text-[15px] leading-relaxed text-muted">{c.text}</p>
-              </motion.div>
+              </Spot>
             </Reveal>
           ))}
         </div>
@@ -244,7 +331,7 @@ function Cta() {
         <motion.div aria-hidden className="absolute left-1/2 top-0 size-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/50 blur-[100px]" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 8, repeat: Infinity }} />
         <h2 className="relative text-4xl font-semibold tracking-tight sm:text-5xl">See the evidence yourself.</h2>
         <p className="relative mx-auto mt-4 max-w-lg text-lg opacity-70">Live checks, every run, the attack lab and the audit trail are inside.</p>
-        <Link to="/login" className="group relative mt-9 inline-flex items-center gap-2 rounded-full bg-bg px-7 py-3.5 text-[15px] font-medium text-fg transition-transform hover:scale-[1.04]">Sign in<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></Link>
+        <Link to="/login" className="group relative mt-9 inline-flex items-center gap-2 overflow-hidden rounded-full bg-bg px-7 py-3.5 text-[15px] font-medium text-fg transition-transform hover:scale-[1.04]"><motion.span aria-hidden className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-accent/30 to-transparent" initial={{ x: "-120%" }} animate={{ x: "320%" }} transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }} /><span className="relative">Sign in</span><ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></Link>
       </Reveal>
     </section>
   );
@@ -252,14 +339,16 @@ function Cta() {
 
 export default function Landing() {
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen overflow-x-hidden">
       <Nav />
       <main>
-        <Hero /><Demo /><Results /><How /><Guardrails /><Limits /><Cta />
+        <Hero /><Marquee /><Demo /><Results /><How /><Guardrails /><Limits /><Cta />
       </main>
       <footer className="border-t border-line px-5 py-10 text-center text-xs leading-relaxed text-faint">
-        Test-mode and synthetic data only.
+        <span className="font-semibold text-muted">Countersign</span> · Guardrails for AI agents that touch money. Test-mode and synthetic data only.
       </footer>
     </div>
+    </MotionConfig>
   );
 }

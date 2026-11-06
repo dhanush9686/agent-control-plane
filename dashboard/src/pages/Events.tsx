@@ -78,7 +78,7 @@ function TriggerPanel({ onSent }: { onSent: () => void }) {
       const Rzp = await loadCheckout();
       const p = PRESETS[preset];
       const rzp = new Rzp({
-        key: KEY_ID, amount: Math.round(amount) * 100, currency: "INR", name: "Control Plane (test mode)", description: p.label,
+        key: KEY_ID, amount: Math.round(amount) * 100, currency: "INR", name: "Countersign (test mode)", description: p.label,
         notes: { tenant: p.tenant, memo: p.memo },
         handler: () => { setMsg("Payment made. The event appears below shortly."); onSent(); },
         modal: { ondismiss: () => setBusy(false) },

@@ -49,7 +49,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center gap-2.5 px-5">
         <Logo size={30} />
-        <span className="text-[15px] font-semibold tracking-tight">Control Plane</span>
+        <span className="text-[15px] font-semibold tracking-tight">Countersign</span>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Sections">
         {[...NAV, ...(me?.role === "admin" && me.mode === "user" ? [ADMIN] : [])].map((g) => (
@@ -110,7 +110,7 @@ export default function AppShell() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-surface lg:block"><Sidebar /></aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-bg/80 px-4 backdrop-blur-xl lg:hidden">
-        <div className="flex items-center gap-2.5"><Logo size={30} /><span className="text-[15px] font-semibold tracking-tight">Control Plane</span></div>
+        <div className="flex items-center gap-2.5"><Logo size={30} /><span className="text-[15px] font-semibold tracking-tight">Countersign</span></div>
         <button type="button" onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-lg p-2 text-muted hover:bg-sunken"><Menu className="size-5" /></button>
       </header>
 
