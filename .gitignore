@@ -46,3 +46,10 @@ dashboard/data/sim.dev.json
 dashboard/data/approvals.dev.json
 dashboard/data/report.dev.*
 dashboard/data/reportmeta.dev.json
+
+
+#claude files
+.claude/
+docs/INTERVIEW_GUIDE.md
+docs/INTERVIEW_NOTES.md
+docs/DECISIONS.md
